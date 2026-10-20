@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:eal_scanner/config/api_config.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:get/get.dart';
 
@@ -11,8 +12,7 @@ class DioClient {
   DioClient._internal() {
     dio = Dio(
       BaseOptions(
-        baseUrl:
-            'https://boblte-eal-api.techpebble.com/api/v1/', // Replace with your base URL
+        baseUrl: ApiConfig.baseUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
       ),

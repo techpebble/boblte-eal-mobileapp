@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:eal_scanner/branding.dart';
+import 'package:eal_scanner/config/api_config.dart';
 import 'package:eal_scanner/controllers/dashboardController.dart';
 import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/services/authService.dart';
@@ -220,7 +221,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 11),
           Text(
-            '${AppBrand.name} ${AppBrand.version} · ${AppBrand.apiLabel}',
+            '${AppBrand.name} ${AppBrand.version} · ${ApiConfig.label}',
             textAlign: TextAlign.center,
             style: AppText.mono(size: 11, color: AppColors.ink500),
           ),
@@ -301,7 +302,7 @@ class _AccountScreenState extends State<AccountScreen> {
         'Note the depot or item, the serial range, and the time.',
         'Say whether the range was scanned or typed by hand.',
         'Quote the build below so the version is unambiguous.',
-        '${AppBrand.name} ${AppBrand.version} · ${AppBrand.apiLabel}',
+        '${AppBrand.name} ${AppBrand.version} · ${ApiConfig.label}',
       ],
     );
   }

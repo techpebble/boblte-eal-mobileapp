@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:eal_scanner/branding.dart';
+import 'package:eal_scanner/config/api_config.dart';
 import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
@@ -243,32 +244,47 @@ class _BrandBand extends StatelessWidget {
   }
 }
 
+/// Names the server being signed in to.
+///
+/// It says which server, and nothing about the data: a test server may still
+/// be pointed at the live database, so promising otherwise would be worse
+/// than saying nothing.
 class _BuildStrip extends StatelessWidget {
   const _BuildStrip();
 
   @override
   Widget build(BuildContext context) {
+    final live = ApiConfig.isProduction;
+
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      background: live ? AppColors.surface : AppColors.cautionTint,
+      borderColor: live ? AppColors.line : AppColors.cautionLine,
       child: Row(
         children: [
-          const Icon(Icons.dns_outlined, size: 18, color: AppColors.ink500),
+          Icon(
+            live ? Icons.dns_outlined : Icons.science_outlined,
+            size: 18,
+            color: live ? AppColors.ink500 : AppColors.caution,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Signing in to the live server',
+                Text(
+                  live
+                      ? 'Signing in to the live server'
+                      : 'Signing in to a test server',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.ink900,
+                    color: live ? AppColors.ink900 : AppColors.cautionDeep,
                   ),
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  '${AppBrand.apiLabel} · build ${AppBrand.version}',
+                  '${ApiConfig.label} · build ${AppBrand.version}',
                   style: AppText.mono(size: 11, color: AppColors.ink500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

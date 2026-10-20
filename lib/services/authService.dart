@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:eal_scanner/config/api_config.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -20,7 +21,7 @@ class AuthService {
 
   static Future<bool> login(String email, String password, RxString message) async {
     final Dio dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 5)));
-    const String url = 'https://boblte-eal-api.techpebble.com/api/v1/auth/login';
+    final String url = ApiConfig.endpoint('auth/login');
 
     try {
       final response = await dio.post(url, data: {

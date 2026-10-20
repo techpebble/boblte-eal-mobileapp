@@ -30,6 +30,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs beside the real app rather than replacing it, so a
+            // test build and the live one can sit on the same phone.
+            applicationIdSuffix = ".dev"
+        }
+
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

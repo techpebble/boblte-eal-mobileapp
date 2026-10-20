@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug builds install alongside the real app, so they need their own
+         name on the home screen. -->
+    <string name="app_name">EAL Track (dev)</string>
+</resources>

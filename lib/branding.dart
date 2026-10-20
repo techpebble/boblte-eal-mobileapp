@@ -11,7 +11,4 @@ class AppBrand {
   /// Kept in step with `version:` in pubspec.yaml. Shown on the sign-in and
   /// account screens so a field report can name the exact build.
   static const version = '1.0.1+2';
-
-  /// Which backend this build talks to, for the same reason.
-  static const apiLabel = 'boblte-eal-api v1';
 }
