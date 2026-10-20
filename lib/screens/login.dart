@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:eal_scanner/branding.dart';
 import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:get/get.dart';
 
@@ -21,19 +22,27 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.lock, size: 80, color: Colors.blue[900]),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Image.asset(
+                      AppBrand.logo,
+                      width: 88,
+                      height: 88,
+                      semanticLabel: '${AppBrand.name} logo',
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Text(
-                    'Welcome Back!',
+                    AppBrand.name,
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[900],
+                      color: AppBrand.navy,
                     ),
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Login to your account',
+                    'Sign in to manage your labels',
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   const SizedBox(height: 40),
@@ -65,7 +74,7 @@ class LoginScreen extends StatelessWidget {
                       },
                       child: Text(
                         "Forgot Password?",
-                        style: TextStyle(color: Colors.blue[900]),
+                        style: const TextStyle(color: AppBrand.navy),
                       ),
                     ),
                   ),
@@ -75,7 +84,7 @@ class LoginScreen extends StatelessWidget {
                   // Login Button
                   Obx(() {
                     return loginController.isLoading.value
-                        ? CircularProgressIndicator(color: Colors.blue[900])
+                        ? const CircularProgressIndicator(color: AppBrand.navy)
                         : SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -84,7 +93,7 @@ class LoginScreen extends StatelessWidget {
                                 await loginController.login();
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue[900],
+                                backgroundColor: AppBrand.navy,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -127,7 +136,7 @@ Widget InputBox({
       controller: controller,
       obscureText: isPassword,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.blue[900]),
+        prefixIcon: Icon(icon, color: AppBrand.navy),
         hintText: hintText,
         border: OutlineInputBorder(
           borderSide: BorderSide.none,

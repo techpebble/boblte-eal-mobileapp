@@ -21,7 +21,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome Back!'), findsOneWidget);
+    expect(find.text('EAL Track'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
     expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
     expect(tester.takeException(), isNull);

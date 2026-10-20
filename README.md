@@ -1,4 +1,4 @@
-# EAL mobile app
+# EAL Track
 
 Flutter Android app for EAL issuance, production entry, and dispatch scanning.
 This repository currently includes the Android platform project.

@@ -3,6 +3,7 @@ import 'package:eal_scanner/screens/dispatches/dispatchListScreen.dart';
 import 'package:eal_scanner/screens/issuance/issuanceListScreen.dart';
 import 'package:eal_scanner/screens/usages/usagesListScreen.dart';
 import 'package:flutter/material.dart';
+import 'package:eal_scanner/branding.dart';
 import 'package:get/get.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -34,7 +35,19 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(AppBrand.logo, width: 32, height: 32),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              AppBrand.name,
+              style: TextStyle(fontWeight: FontWeight.w600, color: AppBrand.navy),
+            ),
+          ],
+        ),
         backgroundColor: Colors.grey.shade100,
         foregroundColor: Colors.black,
         elevation: 0,
