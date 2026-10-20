@@ -57,16 +57,29 @@ class ListScreenHeader extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(title, style: AppText.title),
+                      // Both are flexible: a long title, or a large system
+                      // font, must shorten rather than overflow the row.
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: AppText.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       const SizedBox(width: 9),
                       if (countLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            countLabel!,
-                            style: AppText.mono(
-                              size: 13,
-                              color: AppColors.ink500,
+                        Flexible(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              countLabel!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.mono(
+                                size: 13,
+                                color: AppColors.ink500,
+                              ),
                             ),
                           ),
                         ),

@@ -129,6 +129,10 @@ class _TabButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(
+            // Without this the Column fills the height it is offered, which
+            // stretches the whole bar to the full screen and leaves the body
+            // with nothing.
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(selected ? spec.activeIcon : spec.icon, size: 22, color: color),

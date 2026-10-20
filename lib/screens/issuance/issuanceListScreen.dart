@@ -62,7 +62,16 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
             ),
           ),
 
-          Obx(() => _FilterRow(controller: _controller)),
+          // The observable values are read here, inside the Obx closure.
+          // Reading them inside _FilterRow.build instead puts them outside
+          // the scope GetX watches, and Obx throws.
+          Obx(
+            () => _FilterRow(
+              controller: _controller,
+              selectedDate: _controller.selectedDate.value,
+              rangeDays: _controller.rangeDays.value,
+            ),
+          ),
 
           Obx(() {
             if (_controller.ealIssuance.isEmpty) return const SizedBox.shrink();
@@ -184,9 +193,15 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
 }
 
 class _FilterRow extends StatelessWidget {
-  const _FilterRow({required this.controller});
+  const _FilterRow({
+    required this.controller,
+    required this.selectedDate,
+    required this.rangeDays,
+  });
 
   final Issuancecontroller controller;
+  final DateTime selectedDate;
+  final int rangeDays;
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -194,8 +209,8 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final selected = controller.selectedDate.value;
-    final days = controller.rangeDays.value;
+    final selected = selectedDate;
+    final days = rangeDays;
 
     final isToday = days == 1 && _isSameDay(selected, now);
     final isYesterday = days == 1 &&

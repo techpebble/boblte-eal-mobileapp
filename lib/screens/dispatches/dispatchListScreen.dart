@@ -60,7 +60,17 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
             ),
           ),
 
-          Obx(() => _FilterRow(controller: _controller)),
+          // Observables are read here, inside the Obx closure; reading
+          // them inside _FilterRow.build puts them outside GetX's scope.
+          Obx(
+            () => _FilterRow(
+              controller: _controller,
+              selectedDate: _controller.selectedDate.value,
+              rangeDays: _controller.rangeDays.value,
+              statusFilter: _controller.statusFilter.value,
+              shortCount: _controller.shortCount,
+            ),
+          ),
 
           Expanded(child: Obx(_buildBody)),
         ],
@@ -155,9 +165,19 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
 }
 
 class _FilterRow extends StatelessWidget {
-  const _FilterRow({required this.controller});
+  const _FilterRow({
+    required this.controller,
+    required this.selectedDate,
+    required this.rangeDays,
+    required this.statusFilter,
+    required this.shortCount,
+  });
 
   final DispatchController controller;
+  final DateTime selectedDate;
+  final int rangeDays;
+  final String statusFilter;
+  final int shortCount;
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -165,13 +185,13 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final selected = controller.selectedDate.value;
-    final days = controller.rangeDays.value;
-    final status = controller.statusFilter.value;
+    final selected = selectedDate;
+    final days = rangeDays;
+    final status = statusFilter;
 
     final isToday = days == 1 && _isSameDay(selected, now);
     final isWeek = days == 7;
-    final short = controller.shortCount;
+    final short = shortCount;
 
     return Padding(
       padding: const EdgeInsets.only(top: AppSpace.md),
