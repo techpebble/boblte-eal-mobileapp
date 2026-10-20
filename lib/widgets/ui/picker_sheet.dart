@@ -12,10 +12,15 @@ class PickerOption<T> {
     this.subtitle,
     this.isActive = true,
     this.inactiveNote,
+    this.searchText,
   });
 
   final T value;
   final String label;
+
+  /// Extra text to match on without showing it. Items are listed by their
+  /// short alias, but typing any part of the full name still finds them.
+  final String? searchText;
 
   /// Short metadata shown beneath the label — item code, pack, market.
   final List<String> chips;
@@ -27,7 +32,9 @@ class PickerOption<T> {
   final String? inactiveNote;
 
   String get _haystack =>
-      [label, subtitle ?? '', ...chips].join(' ').toLowerCase();
+      [label, subtitle ?? '', searchText ?? '', ...chips]
+          .join(' ')
+          .toLowerCase();
 }
 
 /// A searchable selection sheet.

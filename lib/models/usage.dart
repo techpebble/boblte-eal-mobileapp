@@ -1,3 +1,5 @@
+import 'package:eal_scanner/models/items.dart';
+
 class SerialRangeModel {
   final int total;
   final int serialFrom;
@@ -55,7 +57,7 @@ class UsageModel {
     return UsageModel(
       id: json['_id'],
       companyName: json['company']['name'],
-      itemName: json['item']['name'],
+      itemName: Item.displayNameFromJson(json['item']),
       packName: json['pack']['name'],
       balanceQuantity: json['balanceQuantity'],
       balanceQuantityInCases: json['balanceQuantityInCases'],

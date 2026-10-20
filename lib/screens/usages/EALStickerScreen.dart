@@ -69,13 +69,15 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
       showActiveFilter: true,
       emptyMessage: 'No active items found.',
       recentValues: _controller.items
-          .where((i) => recentIds.contains(i.name))
+          .where((i) => recentIds.contains(i.displayName))
           .toList(),
       options: _controller.items
           .map(
             (i) => PickerOption<Item>(
               value: i,
-              label: i.name,
+              label: i.displayName,
+              // Listed by the short alias, but the full name still matches.
+              searchText: i.name,
               isActive: i.isActive,
               inactiveNote: 'Discontinued',
               chips: [
@@ -102,7 +104,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
           target: ScanTarget(
             module: AppModule.production,
             title: 'Record production',
-            contextLine: '${item.name} · ${titleCase(item.market)}',
+            contextLine: '${item.displayName} · ${titleCase(item.market)}',
             bottlesPerCase: item.bottlesPerCase,
             unit: ScanUnit.cases,
             submit: (draft) {
@@ -235,7 +237,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            item.name,
+                            item.displayName,
                             style: AppText.cardTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

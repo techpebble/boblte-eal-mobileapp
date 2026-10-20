@@ -1,3 +1,5 @@
+import 'package:eal_scanner/models/items.dart';
+
 class EALLinkModel {
   final String id;
   final String prefix;
@@ -44,7 +46,7 @@ class DispatchItemModel {
     return DispatchItemModel(
       id: json['_id'],
       itemId: json['item']['_id'],
-      name: json['item']['name'],
+      name: Item.displayNameFromJson(json['item']),
       quantityInCases: json['quantityInCases'],
       bottlesPerCase: json['item']['bottlesPerCase'],
       issuedQty: json['EALIssuedQuantity'],
