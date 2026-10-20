@@ -31,7 +31,10 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
   }
 
   void _navigateToAddStickers() async {
-    final items = controller.items;
+    if (controller.isLoading.value) return;
+    final loaded = await controller.fetchItems();
+    if (!mounted || !loaded) return;
+    final items = controller.items.toList();
 
     final selected = await showModalBottomSheet<Item>(
       context: context,
@@ -49,6 +52,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
       },
     );
 
+    if (!mounted) return;
     if (selected != null) {
       setState(() {
         selectedItem = selected;
@@ -65,6 +69,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result == true) {
         // ✅ optionally refresh state
         controller.fetchItems(); // or reload list if needed
@@ -94,11 +99,15 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
           ),
         ],
       ),
-      child: ListTile(
-        title: Text(label, style: const TextStyle(color: Colors.grey)),
-        subtitle: Text(value ?? 'Select', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        trailing: Icon(icon, color: Colors.teal),
-        onTap: onTap,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          title: Text(label, style: const TextStyle(color: Colors.grey)),
+          subtitle: Text(value ?? 'Select', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          trailing: Icon(icon, color: Colors.teal),
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -110,9 +119,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
     super.initState();
      WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.currentProduction.clear();
-      if (controller.companies.isEmpty || controller.packs.isEmpty) {
-        controller.fetchItems();
-      }
+      controller.fetchItems();
     });
   }
 

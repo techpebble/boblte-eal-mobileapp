@@ -7,6 +7,7 @@ class Item {
   final String company;
   final String pack;
   final int bottlesPerCase;
+  final bool isActive;
 
   Item({
     required this.id,
@@ -17,6 +18,7 @@ class Item {
     required this.company,
     required this.pack,
     required this.bottlesPerCase,
+    this.isActive = true,
   });
 
   factory Item.fromJson(Map<String, dynamic> json) {
@@ -26,9 +28,20 @@ class Item {
       name: json['name'],
       brand: json['brand'],
       market: json['market'],
-      company: json['company'],
-      pack: json['pack'],
+      company: _referenceId(json['company']),
+      pack: _referenceId(json['pack']),
       bottlesPerCase: json['bottlesPerCase'],
+      isActive: json['isActive'] != false,
     );
+  }
+
+  // New API responses populate these references; older responses contain IDs.
+  // Keep IDs here because production submissions require ObjectId strings.
+  static String _referenceId(dynamic value) {
+    final id = value is Map ? value['_id'] : value;
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('Item is missing a company or pack ID');
+    }
+    return id;
   }
 }

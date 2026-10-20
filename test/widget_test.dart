@@ -1,30 +1,54 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:eal_scanner/main.dart';
+import 'package:eal_scanner/controllers/usageController.dart';
+import 'package:eal_scanner/screens/usages/EALStickerScreen.dart';
+import 'package:eal_scanner/services/dioClient.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 
-import 'package:eal_scanner/main.dart';
+import 'support/api_test_support.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    await initializeTestStorage();
+  });
+
+  tearDown(() => Get.reset());
+
+  testWidgets('signed-out users see the EAL login screen', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Welcome Back!'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('production picker refreshes items before showing them', (
+    tester,
+  ) async {
+    final controller = Get.put(UsageController());
+    DioClient().dio.httpClientAdapter = FakeApiAdapter({
+      'count': 1,
+      'data': [itemResponse(isActive: true)],
+    });
+    await tester.pumpWidget(const GetMaterialApp(home: EALStickerScreen()));
+    await tester.pumpAndSettle();
+    expect(controller.items, hasLength(1));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Simulate the item being deactivated while the production screen is open.
+    final refreshedApi = FakeApiAdapter({'count': 0, 'data': []});
+    DioClient().dio.httpClientAdapter = refreshedApi;
+    await tester.tap(find.text('Add Production'));
+    await tester.pumpAndSettle();
+
+    expect(refreshedApi.requests, hasLength(1));
+    expect(find.text('Select Item'), findsOneWidget);
+    expect(find.text('No items found.'), findsOneWidget);
+    expect(find.text('Test item'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

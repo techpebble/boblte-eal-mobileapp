@@ -102,23 +102,29 @@ class UsageController extends GetxController {
     }
   }
 
-  void fetchItems() async {
+  Future<bool> fetchItems() async {
     try {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('items');
+      final res = await dio.get('items', queryParameters: {'isActive': 'true'});
       if (res.statusCode == 200) {
         items.value = (res.data['data'] as List)
             .map((e) => Item.fromJson(e))
+            .where((item) => item.isActive)
             .toList();
+        return true;
       } else {
+        items.clear();
         isLoading.value = false;
         Get.snackbar('Error', 'Failed to load items');
+        return false;
       }
     } catch (e) {
+      items.clear();
       isLoading.value = false;
       Get.snackbar('Error', e.toString());
+      return false;
     } finally {
       isLoading.value = false;
     }
