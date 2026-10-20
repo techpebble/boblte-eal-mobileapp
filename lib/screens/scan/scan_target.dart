@@ -120,11 +120,24 @@ class ScanDraft {
     return labels ~/ bottlesPerCase;
   }
 
-  /// True when the range does not divide into whole cases — worth saying out
-  /// loud before it is submitted.
+  /// True when the range does not divide into whole cases.
+  ///
+  /// A part case is not a rounding problem, it is a wrong scan: one of the
+  /// two ends names the wrong label. The range is refused rather than
+  /// truncated, because [casesFor] would quietly drop the remainder.
   bool isPartialCase(int bottlesPerCase) {
     if (bottlesPerCase <= 0 || labels == 0) return false;
     return labels % bottlesPerCase != 0;
+  }
+
+  /// The inverse of [isPartialCase], for readability at call sites that gate
+  /// on the range being acceptable.
+  bool hasWholeCases(int bottlesPerCase) => !isPartialCase(bottlesPerCase);
+
+  /// Labels left over beyond the last whole case.
+  int remainderFor(int bottlesPerCase) {
+    if (bottlesPerCase <= 0 || labels == 0) return 0;
+    return labels % bottlesPerCase;
   }
 
   bool get isBackwards => hasFrom && hasTo && to < from;

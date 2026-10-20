@@ -56,13 +56,14 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
   int? get _typed => _digits.isEmpty ? null : int.tryParse(_digits);
 
   /// What will actually be recorded for this end of the range.
+  ///
+  /// Typed serials are taken exactly as entered, for both ends. Only a
+  /// scanned code gets counted back a case, because a QR names the last
+  /// bottle of its case; someone typing is reading the serial they want
+  /// recorded, so adjusting it would record a number they never saw.
   String? get _recorded {
     final typed = _typed;
     if (typed == null) return null;
-
-    if (widget.isFrom) {
-      return EalQrCodec.firstSerialOfCase(typed, widget.bottlesPerCase);
-    }
     return EalQrCodec.pad(typed);
   }
 
@@ -81,7 +82,16 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
     return count < 0 ? null : count;
   }
 
-  bool get _canSubmit => _recorded != null && _digits.length <= 10;
+  /// Whether the range this would make divides into whole cases. Null when
+  /// the other end is not known yet, so there is nothing to check against.
+  bool? get _wholeCases {
+    final labels = _labels;
+    if (labels == null || widget.bottlesPerCase <= 0) return null;
+    return labels % widget.bottlesPerCase == 0;
+  }
+
+  bool get _canSubmit =>
+      _recorded != null && _digits.length <= 10 && _wholeCases != false;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +111,7 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.isFrom ? 'Type the first label' : 'Type the last label',
+              widget.isFrom ? 'Type the first serial' : 'Type the last serial',
               style: AppText.appBarTitle,
             ),
             if (widget.stepIndex != null && widget.stepCount != null)
@@ -124,8 +134,9 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
         ),
         children: [
           Text(
-            'For labels that are torn, smudged or will not read. Everything '
-            'else about the entry stays the same.',
+            'For labels that are torn, smudged or will not read. The serial '
+            'is recorded exactly as you type it, so enter the '
+            '${widget.isFrom ? 'first' : 'last'} serial of the run itself.',
             style: AppText.bodyMuted,
           ),
 
@@ -160,7 +171,10 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
           ),
 
           const SizedBox(height: AppSpace.lg),
-          const Text('Serial printed on the label', style: AppText.label),
+          Text(
+            widget.isFrom ? 'First serial of the run' : 'Last serial of the run',
+            style: AppText.label,
+          ),
           const SizedBox(height: 7),
           TextField(
             controller: _field,
@@ -221,18 +235,6 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
               ],
             ),
 
-          // The adjustment is stated, not hidden: a scanned code names the
-          // last bottle of its case, and typing follows the same rule.
-          if (widget.isFrom && recorded != null) ...[
-            const SizedBox(height: AppSpace.md),
-            NoticeBanner(
-              level: NoticeLevel.info,
-              title: 'Counted back one case',
-              message: 'The label names the last bottle in its case, so the '
-                  'run starts ${widget.bottlesPerCase - 1} serials earlier.',
-            ),
-          ],
-
           if (labels != null) ...[
             const SizedBox(height: AppSpace.lg),
             AppCard(
@@ -277,6 +279,16 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
             ),
           ],
 
+          if (_wholeCases == false) ...[
+            const SizedBox(height: AppSpace.lg),
+            NoticeBanner(
+              title: 'Not a whole number of cases',
+              message: '${labels! % widget.bottlesPerCase} labels over '
+                  '${formatQty(labels ~/ widget.bottlesPerCase)}. Check the '
+                  'serial — this range cannot be recorded.',
+            ),
+          ],
+
           const SizedBox(height: AppSpace.lg),
           NoticeBanner(
             title: 'Marked as entered by hand',
@@ -298,12 +310,26 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
               AppSpace.gutter,
               12,
             ),
-            child: ElevatedButton(
-              onPressed: _canSubmit
-                  ? () => Navigator.pop(context, _recorded)
-                  : null,
-              style: ElevatedButton.styleFrom(backgroundColor: widget.accent),
-              child: const Text('Use this serial'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: _canSubmit
+                      ? () => Navigator.pop(context, _recorded)
+                      : null,
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: widget.accent),
+                  child: const Text('Use this serial'),
+                ),
+                if (_wholeCases == false) ...[
+                  const SizedBox(height: 9),
+                  Text(
+                    'The range must make whole cases',
+                    textAlign: TextAlign.center,
+                    style: AppText.small,
+                  ),
+                ],
+              ],
             ),
           ),
         ),

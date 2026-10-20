@@ -262,7 +262,11 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   @override
   Widget build(BuildContext context) {
     final accent = _target.module.accent;
-    final ready = _draft.isComplete && !_draft.isBackwards;
+    // A part case is refused outright: the quantity would be wrong and
+    // the remainder silently dropped.
+    final ready = _draft.isComplete &&
+        !_draft.isBackwards &&
+        _draft.hasWholeCases(_target.bottlesPerCase);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -450,6 +454,11 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     if (!_draft.hasTo) return 'Scan the last label of the run';
     if (_draft.isBackwards) {
       return 'The last serial is lower than the first — rescan one of them';
+    }
+    if (!_draft.hasWholeCases(_target.bottlesPerCase)) {
+      final over = _draft.remainderFor(_target.bottlesPerCase);
+      return '$over label${over == 1 ? '' : 's'} over a whole case — '
+          'one of the two ends is wrong';
     }
     return 'Nothing is sent until you confirm the summary';
   }
@@ -806,11 +815,12 @@ class _RunningTotal extends StatelessWidget {
 
           if (draft.isPartialCase(target.bottlesPerCase) && labels > 0) ...[
             const SizedBox(height: AppSpace.md),
-            Text(
-              'That is not a whole number of cases — '
-              '${labels % target.bottlesPerCase} labels over '
-              '${formatQty(cases)}. Check both ends before submitting.',
-              style: AppText.small,
+            NoticeBanner(
+              title: 'Not a whole number of cases',
+              message:
+                  '${draft.remainderFor(target.bottlesPerCase)} labels over '
+                  '${formatQty(cases)}. This range cannot be recorded — one '
+                  'of the two ends names the wrong label.',
             ),
           ],
 

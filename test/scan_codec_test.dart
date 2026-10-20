@@ -125,4 +125,51 @@ void main() {
       expect(draft.isPartialCase(0), isFalse);
     });
   });
+
+  group('whole cases only', () {
+    // A part case is a mis-scan, not a rounding problem: casesFor would
+    // quietly drop the remainder, so the range is refused instead.
+    ScanDraft rangeOf(int from, int to) => ScanDraft(
+          prefix: 'ML1',
+          serialFrom: from.toString().padLeft(10, '0'),
+          serialTo: to.toString().padLeft(10, '0'),
+        );
+
+    test('an exact multiple of the case size is accepted', () {
+      final draft = rangeOf(12001, 13920);
+      expect(draft.labels, 1920);
+      expect(draft.hasWholeCases(12), isTrue);
+      expect(draft.remainderFor(12), 0);
+      expect(draft.casesFor(12), 160);
+    });
+
+    test('one label over a case is refused', () {
+      final draft = rangeOf(12001, 13921);
+      expect(draft.labels, 1921);
+      expect(draft.hasWholeCases(12), isFalse);
+      expect(draft.remainderFor(12), 1);
+    });
+
+    test('one label short of a case is refused', () {
+      final draft = rangeOf(12001, 13919);
+      expect(draft.labels, 1919);
+      expect(draft.hasWholeCases(12), isFalse);
+      expect(draft.remainderFor(12), 11);
+    });
+
+    test('the same range can be whole for one pack and not another', () {
+      final draft = rangeOf(12001, 13920);
+      expect(draft.hasWholeCases(12), isTrue, reason: '1920 / 12 = 160');
+      expect(draft.hasWholeCases(48), isTrue, reason: '1920 / 48 = 40');
+      expect(draft.hasWholeCases(50), isFalse, reason: '1920 / 50 = 38.4');
+      expect(draft.remainderFor(50), 20);
+    });
+
+    test('a single label is refused unless a case holds one', () {
+      final draft = rangeOf(12001, 12001);
+      expect(draft.labels, 1);
+      expect(draft.hasWholeCases(12), isFalse);
+      expect(draft.hasWholeCases(1), isTrue);
+    });
+  });
 }

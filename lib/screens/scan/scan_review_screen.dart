@@ -38,6 +38,10 @@ class _ScanReviewScreenState extends State<ScanReviewScreen> {
   int get _labels => _draft.labels;
   int get _cases => _draft.casesFor(_target.bottlesPerCase);
 
+  /// The flow screen already refuses a part case; this is the second
+  /// gate, so the figure can never be sent rounded.
+  bool get _wholeCases => _draft.hasWholeCases(_target.bottlesPerCase);
+
   /// Where the line stands once this range is added.
   ({int after, int outstanding, bool completes, bool exceeds})? get _lineEffect {
     if (!_target.hasTargetQuantity) return null;
@@ -199,9 +203,10 @@ class _ScanReviewScreenState extends State<ScanReviewScreen> {
                   const SizedBox(height: AppSpace.lg),
                   NoticeBanner(
                     title: 'Not a whole number of cases',
-                    message: '${_labels % _target.bottlesPerCase} labels more '
-                        'than ${formatCases(_cases)}. The server records '
-                        'whole cases only.',
+                    message:
+                        '${_draft.remainderFor(_target.bottlesPerCase)} labels '
+                        'more than ${formatCases(_cases)}. This cannot be '
+                        'recorded — go back and scan both ends again.',
                   ),
                 ],
               ],
@@ -281,7 +286,7 @@ class _ScanReviewScreenState extends State<ScanReviewScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ElevatedButton(
-                  onPressed: _sending ? null : _submit,
+                  onPressed: (_sending || !_wholeCases) ? null : _submit,
                   style: ElevatedButton.styleFrom(backgroundColor: accent),
                   child: _sending
                       ? const SizedBox(
@@ -301,7 +306,10 @@ class _ScanReviewScreenState extends State<ScanReviewScreen> {
                 ),
                 const SizedBox(height: 9),
                 Text(
-                  'Saved to the server straight away',
+                  _wholeCases
+                      ? 'Saved to the server straight away'
+                      : 'Cannot be sent until the range makes whole cases',
+                  textAlign: TextAlign.center,
                   style: AppText.small,
                 ),
               ],
