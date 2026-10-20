@@ -1,0 +1,208 @@
+import 'package:eal_scanner/theme/app_tokens.dart';
+
+/// Which figure a module leads with. Issuance counts labels; production and
+/// dispatch count cases, because that is what the floor and the depot count.
+enum ScanUnit { labels, cases }
+
+/// How the operator left the summary.
+enum ScanReviewResult {
+  /// Backed out without sending.
+  cancelled,
+
+  /// Sent, and finished.
+  done,
+
+  /// Sent, and wants to record another range against the same target.
+  another,
+}
+
+/// Describes what a scan is being recorded against, so one wizard can serve
+/// issuance, production and dispatch instead of the three near-identical
+/// copies the old build carried.
+class ScanTarget {
+  const ScanTarget({
+    required this.module,
+    required this.title,
+    required this.contextLine,
+    required this.bottlesPerCase,
+    required this.unit,
+    required this.submit,
+    this.allowRangeQr = false,
+    this.initialPrefix = '',
+    this.requiredCases,
+    this.alreadyLinkedCases,
+  });
+
+  final AppModule module;
+
+  /// App bar title, e.g. "Link labels".
+  final String title;
+
+  /// The thing being recorded against, e.g. "Central Depot · Reserve Whisky".
+  final String contextLine;
+
+  final int bottlesPerCase;
+  final ScanUnit unit;
+
+  /// Some issuance QR codes carry both ends of the range, which collapses the
+  /// two scan steps into one. Only issuance labels are printed that way.
+  final bool allowRangeQr;
+
+  final String initialPrefix;
+
+  /// Dispatch lines have a quantity to reach, so the wizard can say whether
+  /// this range completes the line or leaves it short.
+  final int? requiredCases;
+  final int? alreadyLinkedCases;
+
+  /// Returns null when the server accepted it, otherwise the message to show.
+  final Future<String?> Function(ScanDraft draft) submit;
+
+  bool get hasTargetQuantity =>
+      requiredCases != null && requiredCases! > 0;
+}
+
+/// A range being assembled, step by step.
+class ScanDraft {
+  const ScanDraft({
+    this.prefix = '',
+    this.serialFrom = '',
+    this.serialTo = '',
+    this.rawFrom,
+    this.rawTo,
+    this.fromTypedByHand = false,
+    this.toTypedByHand = false,
+    this.rangeFromSingleQr = false,
+    this.capturedFromAt,
+    this.capturedToAt,
+  });
+
+  final String prefix;
+
+  /// Both padded to ten digits, as the API expects them.
+  final String serialFrom;
+  final String serialTo;
+
+  /// The raw QR payloads, kept so a mis-scan can be recognised.
+  final String? rawFrom;
+  final String? rawTo;
+
+  /// Typed rather than scanned. Carried through to the summary so the record
+  /// shows how the figure was obtained.
+  final bool fromTypedByHand;
+  final bool toTypedByHand;
+
+  /// One QR carried the whole range, so there is no separate second step.
+  final bool rangeFromSingleQr;
+
+  final DateTime? capturedFromAt;
+  final DateTime? capturedToAt;
+
+  bool get hasPrefix => prefix.length == 3;
+  bool get hasFrom => serialFrom.isNotEmpty;
+  bool get hasTo => serialTo.isNotEmpty;
+  bool get isComplete => hasPrefix && hasFrom && hasTo;
+  bool get typedByHand => fromTypedByHand || toTypedByHand;
+
+  int get from => int.tryParse(serialFrom) ?? 0;
+  int get to => int.tryParse(serialTo) ?? 0;
+
+  /// Matches the old `calculateStickerCount`.
+  int get labels {
+    if (!hasFrom || !hasTo) return 0;
+    final count = to - from + 1;
+    return count < 0 ? 0 : count;
+  }
+
+  /// Whole cases only; the API takes an integer.
+  int casesFor(int bottlesPerCase) {
+    if (bottlesPerCase <= 0) return 0;
+    return labels ~/ bottlesPerCase;
+  }
+
+  /// True when the range does not divide into whole cases — worth saying out
+  /// loud before it is submitted.
+  bool isPartialCase(int bottlesPerCase) {
+    if (bottlesPerCase <= 0 || labels == 0) return false;
+    return labels % bottlesPerCase != 0;
+  }
+
+  bool get isBackwards => hasFrom && hasTo && to < from;
+
+  ScanDraft copyWith({
+    String? prefix,
+    String? serialFrom,
+    String? serialTo,
+    String? rawFrom,
+    String? rawTo,
+    bool? fromTypedByHand,
+    bool? toTypedByHand,
+    bool? rangeFromSingleQr,
+    DateTime? capturedFromAt,
+    DateTime? capturedToAt,
+  }) {
+    return ScanDraft(
+      prefix: prefix ?? this.prefix,
+      serialFrom: serialFrom ?? this.serialFrom,
+      serialTo: serialTo ?? this.serialTo,
+      rawFrom: rawFrom ?? this.rawFrom,
+      rawTo: rawTo ?? this.rawTo,
+      fromTypedByHand: fromTypedByHand ?? this.fromTypedByHand,
+      toTypedByHand: toTypedByHand ?? this.toTypedByHand,
+      rangeFromSingleQr: rangeFromSingleQr ?? this.rangeFromSingleQr,
+      capturedFromAt: capturedFromAt ?? this.capturedFromAt,
+      capturedToAt: capturedToAt ?? this.capturedToAt,
+    );
+  }
+}
+
+/// Reads an EAL QR payload.
+///
+/// Two formats are in circulation and both are preserved exactly as the old
+/// screens parsed them:
+///
+///  * the pipe-separated official label, whose second field is the serial of
+///    the *last* bottle in that case, and
+///  * an underscore-separated form that carries a whole range in one code.
+class EalQrCodec {
+  EalQrCodec._();
+
+  static final RegExp _single = RegExp(
+    r'^([A-Z0-9]+)\|(\d{10})\|(\d{10})\|(\d{10})\|(\d+)\|(\d+)$',
+  );
+
+  static final RegExp _range = RegExp(
+    r'^(\d{10})_(\d{10})_.*[|~]\d*\|?$',
+  );
+
+  /// Pads a serial the way the API expects it.
+  static String pad(int serial) => serial.toString().padLeft(10, '0');
+
+  /// The serial printed on a single label.
+  static int? readSingle(String raw) {
+    if (!_single.hasMatch(raw)) return null;
+    return int.tryParse(raw.split('|')[1]);
+  }
+
+  /// Both ends of a range, where the code carries them.
+  static ({String from, String to})? readRange(String raw) {
+    final match = _range.firstMatch(raw);
+    if (match == null) return null;
+
+    final from = match.group(1);
+    final to = match.group(2);
+    if (from == null || to == null) return null;
+
+    return (from: from, to: to);
+  }
+
+  static bool looksLikeRange(String raw) => _range.hasMatch(raw);
+
+  /// A scanned code names the last bottle of its case, so the first serial of
+  /// the run sits a full case earlier. This is the arithmetic the old screens
+  /// applied and it is why the operator scans the *first* case's label.
+  static String firstSerialOfCase(int scanned, int bottlesPerCase) {
+    final first = scanned - bottlesPerCase + 1;
+    return pad(first < 0 ? 0 : first);
+  }
+}

@@ -30,7 +30,12 @@ class DioClient {
           handler.next(options);
         },
         onError: (DioException e, handler) {
-          Get.snackbar('Error', e.message ?? 'Something went wrong');
+          // Screens that present their own inline error state opt out of the
+          // global snackbar by setting `extra: {'silent': true}` on the
+          // request, so a failure is reported once rather than twice.
+          if (e.requestOptions.extra['silent'] != true) {
+            Get.snackbar('Error', e.message ?? 'Something went wrong');
+          }
           return handler.next(e);
         },
       ),

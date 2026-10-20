@@ -1,298 +1,440 @@
-import 'package:eal_scanner/controllers/dispatchController.dart';
-import 'package:eal_scanner/screens/dispatches/EALScanScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class EALDetailScreen extends StatelessWidget {
+import 'package:eal_scanner/controllers/dispatchController.dart';
+import 'package:eal_scanner/models/dispatch.dart';
+import 'package:eal_scanner/screens/scan/scan_flow_screen.dart';
+import 'package:eal_scanner/screens/scan/scan_target.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
+import 'package:eal_scanner/widgets/ui/serial_text.dart';
+
+/// Reconciling one dispatch line against the labels linked to it.
+///
+/// The old screen signalled a mismatch with red text against green. Here the
+/// three figures are named, the gap is stated in words, and the action scans
+/// exactly the shortfall.
+class EALDetailScreen extends StatefulWidget {
+  const EALDetailScreen({
+    super.key,
+    required this.dispatchItemId,
+    required this.dispatchId,
+  });
+
   final String dispatchItemId;
   final String dispatchId;
 
-  const EALDetailScreen({super.key, required this.dispatchItemId, required this.dispatchId});
+  @override
+  State<EALDetailScreen> createState() => _EALDetailScreenState();
+}
+
+class _EALDetailScreenState extends State<EALDetailScreen> {
+  final DispatchController _controller = Get.find<DispatchController>();
+  String _error = '';
+  bool _busy = false;
+
+  DispatchModel? get _dispatch =>
+      _controller.dispatches.firstWhereOrNull((d) => d.id == widget.dispatchId);
+
+  DispatchItemModel? get _item =>
+      _dispatch?.items.firstWhereOrNull((i) => i.id == widget.dispatchItemId);
+
+  Future<void> _unlink(EALLinkModel link) async {
+    final item = _item;
+    if (item == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Unlink this range?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'These labels go back to the production pool and this line will '
+              'be short again.',
+              style: AppText.bodyMuted,
+            ),
+            const SizedBox(height: AppSpace.md),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: AppColors.canvas,
+                borderRadius: AppRadius.brControl,
+              ),
+              child: SerialRangeText(
+                prefix: link.prefix,
+                from: link.serialFrom,
+                to: link.serialTo,
+                size: 13.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep it'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.red,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Unlink'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+
+    final error = await _controller.removeEALLink(
+      dispatchId: widget.dispatchId,
+      itemId: item.itemId,
+      prefix: link.prefix,
+      serialFrom: link.serialFrom.toString(),
+      serialTo: link.serialTo.toString(),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = error ?? '';
+    });
+  }
+
+  Future<void> _scanMissing() async {
+    final dispatch = _dispatch;
+    final item = _item;
+    if (dispatch == null || item == null) return;
+
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanFlowScreen(
+          target: ScanTarget(
+            module: AppModule.dispatch,
+            title: 'Link labels',
+            contextLine: '${dispatch.depotName} · ${item.name}',
+            bottlesPerCase: item.bottlesPerCase,
+            unit: ScanUnit.cases,
+            requiredCases: item.quantityInCases,
+            alreadyLinkedCases: item.issuedQty,
+            submit: (draft) => _controller.submitEALLink(
+              dispatchId: widget.dispatchId,
+              itemId: item.itemId,
+              prefix: draft.prefix,
+              serialFrom: draft.serialFrom,
+              serialTo: draft.serialTo,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    final DispatchController controller = Get.find();
+    return Obx(() {
+      final dispatch = _dispatch;
+      final item = _item;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('EAL Details', 
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-        ),),
-        backgroundColor: Colors.grey[50],
-        foregroundColor: Colors.deepOrange,
-        elevation: 0,
-      ),
-      body: Obx(() {
-        final dispatch = controller.dispatches.firstWhereOrNull((d) => d.id == dispatchId);
-        final item = dispatch?.items.firstWhereOrNull((i) => i.id == dispatchItemId);
+      if (dispatch == null || item == null) {
+        return Scaffold(
+          backgroundColor: AppColors.canvas,
+          appBar: AppBar(title: const Text('Line', style: AppText.appBarTitle)),
+          body: EmptyState(
+            icon: Icons.help_outline_rounded,
+            title: 'This line is no longer here',
+            message: 'It may have been removed, or the list has moved on. Go '
+                'back and open the dispatch again.',
+            accent: AppColors.amber,
+            tint: AppColors.amberTint,
+            primaryLabel: 'Back to the dispatch',
+            onPrimary: () => Navigator.pop(context),
+          ),
+        );
+      }
 
-        if (item == null) {
-          return const Center(child: Text("Dispatch not found"));
-        }
+      final ordered = item.quantityInCases;
+      final linked = item.issuedQty;
+      final short = ordered - linked;
+      final complete = short <= 0;
+      final lineNumber = dispatch.items.indexOf(item) + 1;
 
-        final isMismatch = item.quantityInCases != item.issuedQty || item.links.isEmpty;
-        
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
+      return Scaffold(
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(
+          shape: const Border(
+            bottom: BorderSide(color: AppColors.line, width: 1),
+          ),
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    )
-                  ],
-                  border: Border.all(
-                    color: isMismatch ? Colors.red.shade200 : Colors.green.shade200,
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Icon(
-                          isMismatch ? Icons.warning_amber : Icons.check_circle,
-                          size: 18,
-                          color: isMismatch ? Colors.red : Colors.green,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            isMismatch ? 'Mismatch or missing EAL links' : 'EAL linked successfully',
-                            style: TextStyle(
-                              color: isMismatch ? Colors.red : Colors.green,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20, color: Colors.grey),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Total Qty", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${item.quantityInCases} Cases"),
-                        const Text("EAL Linked", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${item.issuedQty} Cases", style: TextStyle(color: isMismatch ? Colors.red : Colors.green),),
-                      ],
-                    )
-                  ],
-                ),
+              Text(
+                item.name,
+                style: AppText.appBarTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 24),
-
-              const Text(
-                'Linked EAL Ranges',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-
-              item.links.isEmpty
-                  ? Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(top: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        border: Border.all(color: Colors.red.shade200),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.warning_amber, color: Colors.red),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'No EAL linked for this item',
-                              style: TextStyle(color: Colors.red, fontSize: 14),
-                            ),
-                          )
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: item.links.length,
-                      separatorBuilder: (_, __) => const Divider(height: 0),
-                      itemBuilder: (context, index) {
-                        final eal = item.links[index];
-                        final from = eal.serialFrom;
-                        final to = eal.serialTo;
-                        final cases = ((to - from + 1) / item.bottlesPerCase).round();
-                        final isFinal = dispatch?.status.toLowerCase() == 'final';
-
-                        final listTile = ListTile(
-                          tileColor: Colors.white,
-                          leading: const Icon(Icons.qr_code_2, color: Colors.blue),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('From: ${eal.prefix}${from.toString().padLeft(10, '0')}'),
-                              const SizedBox(height: 6),
-                              Text('To:      ${eal.prefix}${to.toString().padLeft(10, '0')}'),
-                            ],
-                          ),
-                          trailing: Chip(
-                            label: Text('$cases Cases', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            backgroundColor: Colors.green.shade100,
-                            side: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        );
-
-                        return isFinal
-                            ? Dismissible(
-                                key: Key(eal.id),
-                                background: Container(
-                                  color: Colors.red.shade400,
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.only(left: 20),
-                                  child: const Icon(Icons.delete, color: Colors.white),
-                                ),
-                                secondaryBackground: Container(
-                                  color: Colors.red.shade400,
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 20),
-                                  child: const Icon(Icons.delete, color: Colors.white),
-                                ),
-                                confirmDismiss: (_) async {
-                                  return await Get.dialog(
-                                    AlertDialog(
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                      title: Row(
-                                        children: const [
-                                          Icon(Icons.warning_amber_rounded, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text("Remove EAL Link", style: TextStyle(fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                      content: const Text(
-                                        "Are you sure you want to remove this EAL link?",
-                                        style: TextStyle(fontSize: 15),
-                                      ),
-                                      actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      actionsAlignment: MainAxisAlignment.spaceBetween,
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Get.back(result: false),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: Colors.grey[700],
-                                          ),
-                                          child: const Text("Cancel"),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () => Get.back(result: true),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red[600],
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          child: const Text("Remove"),
-                                        ),
-                                      ],
-                                    )
-
-                                  );
-                                },
-                                onDismissed: (_) async {
-                                  await controller.removeEALLink(
-                                    dispatchId: dispatchId,
-                                    itemId: item.itemId,
-                                    prefix: eal.prefix,
-                                    serialFrom: eal.serialFrom.toString(),
-                                    serialTo: eal.serialTo.toString(),
-                                  );
-
-                                  Get.snackbar(
-                                    "Deleted",
-                                    "EAL link removed",
-                                    backgroundColor: Colors.white,
-                                    colorText: Colors.black,
-                                    duration: const Duration(seconds: 2),
-                                  );
-                                },
-                                child: listTile,
-                              )
-                            : listTile;
-                      },
-                    )
-,
-
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Icon(
-                    isMismatch ? Icons.warning : Icons.check_circle,
-                    color: isMismatch ? Colors.red : Colors.green,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isMismatch
-                        ? 'Mismatch: Quantity and EALs not aligned'
-                        : 'EAL linked and verified',
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                      color: isMismatch ? Colors.red : Colors.green,
-                    ),
-                  ),
-                ],
+              Text(
+                'Line $lineNumber · ${dispatch.depotName} · '
+                '${formatDayMonth(dispatch.dateDispatched)}',
+                style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-        );
-      }),
-      bottomNavigationBar: Obx(() {
-        final dispatch = controller.dispatches.firstWhereOrNull((d) => d.id == dispatchId);
-        final item = dispatch?.items.firstWhereOrNull((i) => i.id == dispatchItemId);
-        final disableLinkBtn = dispatch?.status.toLowerCase() != 'final' ||
-            (item != null && item.quantityInCases == item.issuedQty);
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            AppSpace.lg,
+            AppSpace.gutter,
+            AppSpace.xxl,
+          ),
+          children: [
+            if (_error.isNotEmpty) ...[
+              NoticeBanner(
+                level: NoticeLevel.error,
+                title: 'That did not go through',
+                message: _error,
+                trailing: IconButton(
+                  onPressed: () => setState(() => _error = ''),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  tooltip: 'Dismiss',
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
 
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton.icon(
-            onPressed: disableLinkBtn
-                ? null
-                : () {
-                    Get.to(() => EALLinkScannerScreen(
-                          dispatchItemId: dispatchItemId,
-                          dispatchId: dispatchId,
-                        ));
-                  },
-            icon: const Icon(Icons.link, color: Colors.white),
-            label: const Text('Link EAL', style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: disableLinkBtn ? Colors.grey : Colors.blue[900],
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            // Three figures and the gap between them.
+            AppCard(
+              radius: AppRadius.card,
+              padding: const EdgeInsets.all(AppSpace.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FigureTile(
+                          value: formatQty(ordered),
+                          label: 'ordered',
+                          size: 23,
+                        ),
+                      ),
+                      Expanded(
+                        child: FigureTile(
+                          value: formatQty(linked),
+                          label: 'linked',
+                          size: 23,
+                        ),
+                      ),
+                      Expanded(
+                        child: FigureTile(
+                          value: formatQty(complete ? 0 : short),
+                          label: complete ? 'complete' : 'short',
+                          size: 23,
+                          color: complete
+                              ? AppColors.greenDeep
+                              : AppColors.caution,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'cases · ${item.bottlesPerCase} bottles per case',
+                    style: AppText.micro,
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                  LinkedProgressBar(
+                    linked: linked,
+                    required_: ordered,
+                    height: 9,
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                  if (complete)
+                    const NoticeBanner(
+                      level: NoticeLevel.success,
+                      title: 'Fully labelled',
+                      message: 'Every case on this line has a label against '
+                          'it.',
+                    )
+                  else
+                    NoticeBanner(
+                      title: '${formatCases(short)} still need labels',
+                      message: 'Link ${formatQty(short * item.bottlesPerCase)} '
+                          'more labels to balance this line. Scanned labels '
+                          'must already be recorded as produced.',
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpace.xl),
+            SectionHeading(
+              'Linked ranges',
+              trailing: Text(
+                '${item.links.length}',
+                style: AppText.mono(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: AppColors.ink500,
+                ),
+              ),
+            ),
+
+            if (item.links.isEmpty)
+              AppCard(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.link_off_rounded,
+                      size: 20,
+                      color: AppColors.caution,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No labels are linked to this line yet.',
+                        style: AppText.small,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < item.links.length; i++)
+                      _LinkRow(
+                        link: item.links[i],
+                        bottlesPerCase: item.bottlesPerCase,
+                        isLast: i == item.links.length - 1,
+                        onUnlink: _busy ? null : () => _unlink(item.links[i]),
+                      ),
+                  ],
+                ),
+              ),
+
+            if (item.links.isNotEmpty) ...[
+              const SizedBox(height: 11),
+              Text(
+                'Unlinking returns those labels to the production pool. You '
+                'will be asked to confirm.',
+                style: AppText.small,
+              ),
+            ],
+          ],
+        ),
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.line, width: 1)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                12,
+                AppSpace.gutter,
+                12,
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _busy ? null : _scanMissing,
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                label: Text(
+                  complete
+                      ? 'Link another range'
+                      : 'Scan the missing ${formatCases(short)}',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.amber,
+                ),
+              ),
             ),
           ),
-        );
-      }),
+        ),
+      );
+    });
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({
+    required this.link,
+    required this.bottlesPerCase,
+    required this.isLast,
+    required this.onUnlink,
+  });
+
+  final EALLinkModel link;
+  final int bottlesPerCase;
+  final bool isLast;
+  final VoidCallback? onUnlink;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = link.serialTo - link.serialFrom + 1;
+    final cases = bottlesPerCase > 0 ? labels ~/ bottlesPerCase : null;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : const Border(
+                bottom: BorderSide(color: AppColors.lineSoft, width: 1),
+              ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SerialRangeText(
+                  prefix: link.prefix,
+                  from: link.serialFrom,
+                  to: link.serialTo,
+                  size: 13.5,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  cases == null
+                      ? formatLabels(labels)
+                      : '${formatCases(cases)} · ${formatLabels(labels)}',
+                  style: AppText.micro,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onUnlink,
+            icon: const Icon(Icons.link_off_rounded, size: 19),
+            tooltip: 'Unlink this range',
+            color: AppColors.red,
+          ),
+        ],
+      ),
     );
   }
 }

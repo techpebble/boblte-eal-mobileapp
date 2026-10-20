@@ -1,11 +1,23 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
 import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/models/company.dart';
 import 'package:eal_scanner/models/packSize.dart';
-import 'package:eal_scanner/screens/issuance/EALScanScreen.dart';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+import 'package:eal_scanner/screens/scan/scan_flow_screen.dart';
+import 'package:eal_scanner/screens/scan/scan_target.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
+import 'package:eal_scanner/widgets/ui/picker_sheet.dart';
+import 'package:eal_scanner/widgets/ui/serial_text.dart';
 
+/// Recording labels received from the excise office.
+///
+/// The old screen blocked with a dialog if company and market were not set
+/// before the scan button; here the form is ordered so that cannot happen and
+/// the action states what it is waiting for.
 class EALStickerScreen extends StatefulWidget {
   const EALStickerScreen({super.key});
 
@@ -14,255 +26,515 @@ class EALStickerScreen extends StatefulWidget {
 }
 
 class _EALStickerScreenState extends State<EALStickerScreen> {
-  DateTime selectedDate = DateTime.now();
-  String? selectedMarket;
-  Company? selectedCompany;
-  PackSize? selectedPack;
-  bool _disableInputField = false;
+  final Issuancecontroller _controller = Get.find<Issuancecontroller>();
 
-  final controller = Get.find<Issuancecontroller>();
-  final List<String> markets = ['local', 'export'];
-  final List<String> stickers = [];
-
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2023),
-      lastDate: DateTime(2035),
-    );
-    if (picked != null) setState(() => selectedDate = picked);
-  }
-
-  void _showBottomSheet({
-    required List options,
-    required String title,
-    required String Function(dynamic) label,
-    required ValueChanged<dynamic> onSelected,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-            ...options.map((opt) => ListTile(
-                  title: Text(label(opt)),
-                  onTap: () {
-                    onSelected(opt);
-                    Navigator.pop(context);
-                  },
-                ))
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _navigateToAddStickers() {
-    if (selectedCompany == null || selectedMarket == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select Company and Market before proceeding.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    final packs = controller.packs;
-
-    _showBottomSheet(
-      options: packs,
-      title: 'Select Pack Size',
-      label: (p) => p.name,
-      onSelected: (pack) async {
-        setState(() => selectedPack = pack);
-        // Navigate only after pack is selected
-        Future.delayed(const Duration(milliseconds: 200), () {
-          _disableInputField = true;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => EALLinkScannerScreen(company: selectedCompany, pack: selectedPack, market: selectedMarket ,date: selectedDate),
-            ),
-          );
-        });
-      },
-    );
-  }
-
-  Widget _fieldTile({
-    required String label,
-    required String? value,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: _disableInputField ? Colors.grey.shade200 : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade100,
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ListTile(
-        title: Text(label, style: const TextStyle(color: Colors.grey)),
-        subtitle: Text(value ?? 'Select', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        trailing: Icon(icon, color: Colors.indigo),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  String get _formattedDate => DateFormat('dd-MMM-yyyy').format(selectedDate);
+  DateTime _date = DateTime.now();
+  Company? _company;
+  PackSize? _pack;
+  String _market = 'local';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.currentEalIssuance.clear();
-      if (controller.companies.isEmpty || controller.packs.isEmpty) {
-        controller.fetchCompanies();
-        controller.fetchPackSizes();
-      }
+      _controller.currentEalIssuance.clear();
+      if (_controller.companies.isEmpty) _controller.fetchCompanies();
+      if (_controller.packs.isEmpty) _controller.fetchPackSizes();
     });
+  }
+
+  bool get _ready => _company != null && _pack != null;
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2023),
+      lastDate: DateTime(2035),
+    );
+    if (picked != null && mounted) setState(() => _date = picked);
+  }
+
+  Future<void> _pickCompany() async {
+    final chosen = await showPickerSheet<Company>(
+      context: context,
+      title: 'Choose company',
+      searchHint: 'Company name',
+      accent: AppColors.indigo,
+      selected: _company,
+      emptyMessage: 'No companies have been set up yet.',
+      options: _controller.companies
+          .map((c) => PickerOption<Company>(value: c, label: c.name))
+          .toList(),
+    );
+    if (chosen != null && mounted) setState(() => _company = chosen);
+  }
+
+  Future<void> _pickPack() async {
+    final chosen = await showPickerSheet<PackSize>(
+      context: context,
+      title: 'Choose pack size',
+      searchHint: 'Pack size',
+      accent: AppColors.indigo,
+      selected: _pack,
+      emptyMessage: 'No pack sizes have been set up yet.',
+      options: _controller.packs
+          .map(
+            (p) => PickerOption<PackSize>(
+              value: p,
+              label: p.name,
+              chips: ['${p.bottlesPerCase} per case'],
+            ),
+          )
+          .toList(),
+    );
+    if (chosen != null && mounted) setState(() => _pack = chosen);
+  }
+
+  Future<void> _scanRange() async {
+    final company = _company;
+    final pack = _pack;
+    if (company == null || pack == null) return;
+
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanFlowScreen(
+          target: ScanTarget(
+            module: AppModule.issuance,
+            title: 'Record issuance',
+            contextLine:
+                '${pack.name} · ${titleCase(_market)} · ${company.name}',
+            bottlesPerCase: pack.bottlesPerCase,
+            unit: ScanUnit.labels,
+            // Some issuance labels carry the whole range in one code.
+            allowRangeQr: true,
+            submit: (draft) => _controller.addEALIssuance(
+              company: company,
+              dateIssued: _date,
+              market: _market,
+              pack: pack,
+              prefix: draft.prefix,
+              serialFrom: draft.serialFrom,
+              serialTo: draft.serialTo,
+              issuedQuantity: draft.labels,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentEalIssuance = controller.currentEalIssuance;
-    final companies = controller.companies;
-
-    return Obx(() {
-      return Stack(
-        children: [
-          Scaffold(
-            backgroundColor: Colors.grey.shade100,
-            appBar: AppBar(
-              title: const Text('EAL Issuance Entry', style: TextStyle(fontWeight: FontWeight.w600)),
-              backgroundColor: Colors.grey.shade100,
-              foregroundColor: Colors.indigo,
-              elevation: 0,
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      appBar: AppBar(
+        shape: const Border(
+          bottom: BorderSide(color: AppColors.line, width: 1),
+        ),
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close_rounded),
+          tooltip: 'Close',
+        ),
+        title: const Text('New issuance', style: AppText.appBarTitle),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: OutlinedButton.icon(
+              onPressed: _pickDate,
+              icon: const Icon(Icons.calendar_today_rounded, size: 15),
+              label: Text(formatDayMonth(_date)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            body: Padding(
-              padding: const EdgeInsets.all(16),
+          ),
+        ],
+      ),
+      body: Obx(() {
+        final recorded = _controller.currentEalIssuance;
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            AppSpace.lg,
+            AppSpace.gutter,
+            AppSpace.xxl,
+          ),
+          children: [
+            const SectionHeading('What is being issued'),
+            AppCard(
+              padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  _fieldTile(
-                    label: 'Date',
-                    value: _formattedDate,
-                    icon: Icons.date_range,
-                    onTap: () => !_disableInputField ? _pickDate() : "",
-                  ),
-                  _fieldTile(
+                  PickerField(
                     label: 'Company',
-                    value: selectedCompany?.name,
-                    icon: Icons.arrow_drop_down,
-                    onTap: () => 
-                    !_disableInputField ?
-                      _showBottomSheet(
-                        options: companies,
-                        title: 'Select Company',
-                        label: (c) => c.name,
-                        onSelected: (c) => setState(() => selectedCompany = c),
-                      ) : "",
+                    value: _company?.name,
+                    icon: Icons.apartment_rounded,
+                    onTap: _pickCompany,
                   ),
-                  _fieldTile(
-                    label: 'Market',
-                    value: selectedMarket != null ? "${selectedMarket?[0].toUpperCase()}${selectedMarket?.substring(1)}" : "Select",
-                    icon: Icons.arrow_drop_down,
-                    onTap: () => 
-                    !_disableInputField ?
-                      _showBottomSheet(
-                        options: markets,
-                        title: 'Select Market',
-                        label: (m) => "${m?[0].toUpperCase()}${m?.substring(1)}",
-                        onSelected: (m) => setState(() => selectedMarket = m),
-                      ) : "",
+                  PickerField(
+                    label: 'Pack size',
+                    value: _pack == null
+                        ? null
+                        : '${_pack!.name} · ${_pack!.bottlesPerCase} per case',
+                    icon: Icons.inventory_2_outlined,
+                    onTap: _pickPack,
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      icon: const Icon(Icons.qr_code, color: Colors.white,),
-                      label: const Text("Add EAL Stickers", style: TextStyle(fontSize: 16, color: Colors.white)),
-                      onPressed: _navigateToAddStickers,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Market', style: AppText.micro),
+                        const SizedBox(height: 8),
+                        _MarketToggle(
+                          value: _market,
+                          accent: AppColors.indigo,
+                          onChanged: (v) => setState(() => _market = v),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'EAL Issued',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Obx(() {
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: currentEalIssuance.length,
-                      separatorBuilder: (_, __) => const Divider(height: 0),
-                      itemBuilder: (context, index) {
-                        final range = currentEalIssuance[index];
-                        final from = range.serialFrom;
-                        final to = range.serialTo;
+                ],
+              ),
+            ),
 
-                        return ListTile(
-                          tileColor: Colors.white,
-                          leading: const Icon(Icons.qr_code_2, color: Colors.indigoAccent),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('From: ${currentEalIssuance[index].prefix}${from.toString().padLeft(10, '0')}'),
-                              const SizedBox(height: 6),
-                              Text('To:      ${currentEalIssuance[index].prefix}${to.toString().padLeft(10, '0')}'),
-                            ],
-                          ),
-                          trailing: Chip(
-                            label: Text((int.parse(to) - int.parse(from) + 1).toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                            backgroundColor: Colors.indigo.shade100,
-                            side: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        );
-                      },
-                    );
-                  })
+            const SizedBox(height: AppSpace.xl),
+            SectionHeading(
+              'Recorded in this session',
+              trailing: Text(
+                '${recorded.length}',
+                style: AppText.mono(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: AppColors.ink500,
+                ),
+              ),
+            ),
+
+            if (recorded.isEmpty)
+              AppCard(
+                padding: const EdgeInsets.all(18),
+                child: Text(
+                  _ready
+                      ? 'Nothing yet. Scan a range to record it against the '
+                          'pack above.'
+                      : 'Choose a company and pack size first — a range has to '
+                          'belong to one.',
+                  style: AppText.small,
+                ),
+              )
+            else
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < recorded.length; i++)
+                      _RecordedRow(
+                        prefix: recorded[i].prefix,
+                        from: int.tryParse(recorded[i].serialFrom) ?? 0,
+                        to: int.tryParse(recorded[i].serialTo) ?? 0,
+                        labels: recorded[i].issuedQuantity,
+                        bottlesPerCase: _pack?.bottlesPerCase ?? 0,
+                        isLast: i == recorded.length - 1,
+                      ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 10),
+            _ScanButton(
+              enabled: _ready,
+              accent: AppColors.indigo,
+              label: recorded.isEmpty ? 'Scan a range' : 'Scan another range',
+              onTap: _scanRange,
+            ),
+
+            if (!_ready) ...[
+              const SizedBox(height: AppSpace.md),
+              NoticeBanner(
+                level: NoticeLevel.info,
+                title: 'Pick the company and pack first',
+                message: 'The pack size sets how many bottles are in a case, '
+                    'which is what turns a serial range into a quantity.',
+              ),
+            ],
+          ],
+        );
+      }),
+      bottomNavigationBar: Obx(() {
+        final recorded = _controller.currentEalIssuance;
+        final labels = recorded.fold<int>(
+          0,
+          (sum, r) => sum + r.issuedQuantity,
+        );
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.line, width: 1)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                12,
+                AppSpace.gutter,
+                12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('Recorded so far', style: AppText.small),
+                      ),
+                      Text(
+                        formatQty(labels),
+                        style: AppText.figure(size: 19),
+                      ),
+                      const SizedBox(width: 5),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 2),
+                        child: Text('labels', style: AppText.micro),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 11),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.indigo,
+                    ),
+                    child: Text(recorded.isEmpty ? 'Close' : 'Done'),
+                  ),
                 ],
               ),
             ),
           ),
+        );
+      }),
+    );
+  }
+}
 
-          // 🔄 Fullscreen Loading Overlay (covers AppBar too)
-          if (controller.isLoading.value)
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: Colors.black26,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.indigo),
+/// `local` / `export`, labelled as the backend names them.
+class _MarketToggle extends StatelessWidget {
+  const _MarketToggle({
+    required this.value,
+    required this.onChanged,
+    required this.accent,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final option in const ['local', 'export']) ...[
+          if (option != 'local') const SizedBox(width: 8),
+          Expanded(
+            child: _MarketOption(
+              label: titleCase(option),
+              selected: value == option,
+              accent: accent,
+              onTap: () => onChanged(option),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MarketOption extends StatelessWidget {
+  const _MarketOption({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.1) : AppColors.surface,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected ? accent : AppColors.lineField,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 17,
+                color: selected ? accent : AppColors.ink400,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? accent : AppColors.ink700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanButton extends StatelessWidget {
+  const _ScanButton({
+    required this.enabled,
+    required this.accent,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final Color accent;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: AppRadius.brControl,
+      child: Container(
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.brControl,
+          border: Border.all(
+            color: enabled ? accent : AppColors.lineField,
+            width: 1.5,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.qr_code_scanner_rounded,
+              size: 19,
+              color: enabled ? accent : AppColors.ink400,
+            ),
+            const SizedBox(width: 9),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: enabled ? accent : AppColors.ink500,
               ),
             ),
-        ]
-      );
-      });
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordedRow extends StatelessWidget {
+  const _RecordedRow({
+    required this.prefix,
+    required this.from,
+    required this.to,
+    required this.labels,
+    required this.bottlesPerCase,
+    required this.isLast,
+  });
+
+  final String prefix;
+  final int from;
+  final int to;
+  final int labels;
+  final int bottlesPerCase;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final cases = bottlesPerCase > 0 ? labels ~/ bottlesPerCase : null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : const Border(
+                bottom: BorderSide(color: AppColors.lineSoft, width: 1),
+              ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            size: 19,
+            color: AppColors.green,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SerialRangeText(
+                  prefix: prefix,
+                  from: from,
+                  to: to,
+                  size: 13.5,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  cases == null
+                      ? formatLabels(labels)
+                      : '${formatLabels(labels)} · ${formatCases(cases)}',
+                  style: AppText.micro,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

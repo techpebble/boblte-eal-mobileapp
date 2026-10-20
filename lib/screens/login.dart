@@ -1,110 +1,172 @@
 import 'package:flutter/material.dart';
-import 'package:eal_scanner/branding.dart';
-import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:get/get.dart';
 
-class LoginScreen extends StatelessWidget {
+import 'package:eal_scanner/branding.dart';
+import 'package:eal_scanner/controllers/loginController.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
+
+/// Sign-in. Fields carry real labels rather than placeholder-only hints,
+/// failures appear inline instead of in a modal dialog, and the footer names
+/// the server and build so a field report can be specific.
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final LoginController _controller = Get.put(LoginController());
+  bool _obscure = true;
+
+  @override
   Widget build(BuildContext context) {
-    LoginController loginController = Get.put(LoginController());
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: SizedBox(
-            height: Get.height,
-            width: Get.width,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      backgroundColor: AppColors.canvas,
+      body: Column(
+        children: [
+          const _BrandBand(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.xxl,
+                AppSpace.xxl,
+                AppSpace.xxl,
+                AppSpace.lg,
+              ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: Image.asset(
-                      AppBrand.logo,
-                      width: 88,
-                      height: 88,
-                      semanticLabel: '${AppBrand.name} logo',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    AppBrand.name,
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: AppBrand.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Sign in to manage your labels',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 40),
+                  Obx(() {
+                    final message = _controller.message.value;
+                    if (message.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.xl),
+                      child: NoticeBanner(
+                        level: NoticeLevel.error,
+                        title: 'Could not sign in',
+                        message: message,
+                      ),
+                    );
+                  }),
 
-                  // Email Input
-                  InputBox(
-                    hintText: 'Email/Mobile',
-                    icon: Icons.email_outlined,
-                    controller: loginController.emailController,
-                    isPassword: false,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Password Input
-                  InputBox(
-                    hintText: 'Password',
-                    icon: Icons.lock_outline,
-                    controller: loginController.passwordController,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Forgot Password
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        // TODO: Forgot password action
-                      },
-                      child: Text(
-                        "Forgot Password?",
-                        style: const TextStyle(color: AppBrand.navy),
+                  const Text('Email or mobile', style: AppText.label),
+                  const SizedBox(height: 7),
+                  TextField(
+                    controller: _controller.emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.username],
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => _controller.message.value = '',
+                    decoration: const InputDecoration(
+                      hintText: 'you@plant.co',
+                      prefixIcon: Icon(
+                        Icons.mail_outline_rounded,
+                        size: 19,
+                        color: AppColors.ink500,
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpace.xl),
+                  const Text('Password', style: AppText.label),
+                  const SizedBox(height: 7),
+                  TextField(
+                    controller: _controller.passwordController,
+                    obscureText: _obscure,
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    onChanged: (_) => _controller.message.value = '',
+                    onSubmitted: (_) => _controller.login(),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 19,
+                        color: AppColors.ink500,
+                      ),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        tooltip: _obscure ? 'Show password' : 'Hide password',
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20,
+                          color: AppColors.ink500,
+                        ),
+                      ),
+                    ),
+                  ),
 
-                  // Login Button
-                  Obx(() {
-                    return loginController.isLoading.value
-                        ? const CircularProgressIndicator(color: AppBrand.navy)
-                        : SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                await loginController.login();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppBrand.navy,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _showForgotPassword,
+                      child: const Text('Forgot password?'),
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpace.sm),
+                  Obx(
+                    () => ElevatedButton(
+                      onPressed: _controller.isLoading.value
+                          ? null
+                          : () => _controller.login(),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                      ),
+                      child: _controller.isLoading.value
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
                                 ),
                               ),
-                              child: const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
-                            ),
-                          );
-                  }),
+                            )
+                          : const Text('Sign in'),
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpace.xxl),
+                  const _BuildStrip(),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showForgotPassword() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            0,
+            AppSpace.gutter,
+            AppSpace.xxl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Forgot password?', style: AppText.title),
+              const SizedBox(height: AppSpace.md),
+              Text(
+                'Accounts are created and reset by the plant administrator — '
+                'there is no self-service reset. Ask them to issue a new '
+                'password for your email or mobile.',
+                style: AppText.bodyMuted,
+              ),
+            ],
           ),
         ),
       ),
@@ -112,39 +174,110 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
+class _BrandBand extends StatelessWidget {
+  const _BrandBand();
 
-Widget InputBox({
-  required String hintText,
-  required TextEditingController? controller,
-  required bool isPassword,
-  required IconData icon,
-}) {
-  return Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.shade100,
-          spreadRadius: 2,
-          blurRadius: 6,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: TextField(
-      controller: controller,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: AppBrand.navy),
-        hintText: hintText,
-        border: OutlineInputBorder(
-          borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: Colors.white,
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AppColors.navy,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-    ),
-  );
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.xxl,
+            AppSpace.xxl,
+            AppSpace.xxl,
+            40,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  AppBrand.logo,
+                  fit: BoxFit.cover,
+                  semanticLabel: '${AppBrand.name} logo',
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.qr_code_2_rounded,
+                    size: 30,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                AppBrand.name,
+                style: TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.54,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 7),
+              const Text(
+                AppBrand.tagline,
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.4,
+                  color: AppColors.onNavyMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BuildStrip extends StatelessWidget {
+  const _BuildStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.dns_outlined, size: 18, color: AppColors.ink500),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Signing in to the live server',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink900,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '${AppBrand.apiLabel} · build ${AppBrand.version}',
+                  style: AppText.mono(size: 11, color: AppColors.ink500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

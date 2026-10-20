@@ -4,6 +4,7 @@ import 'package:eal_scanner/models/issuance.dart';
 import 'package:eal_scanner/models/items.dart';
 import 'package:eal_scanner/models/packSize.dart';
 import 'package:eal_scanner/services/dioClient.dart';
+import 'package:eal_scanner/utils/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +18,35 @@ class Issuancecontroller extends GetxController {
   RxList<PackSize> packs = <PackSize>[].obs;
   RxList<IssuanceModel> currentEalIssuance = <IssuanceModel>[].obs;
 
+  /// Free-text filter over pack, market and company.
+  RxString searchQuery = ''.obs;
+
+  /// How many days the list covers, counting back from [selectedDate]. 1 is
+  /// the single day the old build was fixed to.
+  RxInt rangeDays = 1.obs;
+
+  /// Shown inline on the list rather than thrown as a snackbar.
+  RxString errorMessage = ''.obs;
+
+  List<IssuanceModel> get filteredIssuance {
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) return ealIssuance;
+
+    return ealIssuance.where((i) {
+      return i.packName.toLowerCase().contains(query) ||
+          i.market.toLowerCase().contains(query) ||
+          i.companyName.toLowerCase().contains(query) ||
+          i.prefix.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  /// Totals for the summary strip above the list.
+  int get totalIssued =>
+      ealIssuance.fold<int>(0, (sum, i) => sum + i.issuedQuantity);
+
+  int get totalUnused =>
+      ealIssuance.fold<int>(0, (sum, i) => sum + i.balanceQuantity);
+
   void pickDate() async {
     DateTime? picked = await showDatePicker(
       context: Get.context!,
@@ -27,32 +57,44 @@ class Issuancecontroller extends GetxController {
 
     if (picked != null) {
       selectedDate.value = picked;
+      rangeDays.value = 1;
       fetchEALIssuance();
     }
   }
 
+  void setRange({required DateTime endDate, int days = 1}) {
+    selectedDate.value = endDate;
+    rangeDays.value = days;
+    fetchEALIssuance();
+  }
+
   void fetchEALIssuance() async {
-    final String formattedDate = DateFormat(
-      'yyyy-MM-dd',
-    ).format(selectedDate.value);
-    final url = 'eal_issuance?startDate=$formattedDate&endDate=$formattedDate';
+    final end = selectedDate.value;
+    final start = end.subtract(Duration(days: (rangeDays.value - 1).clamp(0, 365)));
+    final formatter = DateFormat('yyyy-MM-dd');
+    final url =
+        'eal_issuance?startDate=${formatter.format(start)}&endDate=${formatter.format(end)}';
 
     try {
       isLoading.value = true;
+      errorMessage.value = '';
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get(url);
+      final res = await dio.get(
+        url,
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         ealIssuance.value = (res.data['data'] as List)
             .map((e) => IssuanceModel.fromJson(e))
             .toList();
       } else {
-        isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load EAL Issuance');
+        errorMessage.value = 'Could not load issuance records.';
       }
-    } catch (e) {
-      isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+    } on DioException catch (e) {
+      errorMessage.value = readableDioError(e, 'Could not load issuance records.');
+    } catch (_) {
+      errorMessage.value = 'Could not load issuance records.';
     } finally {
       isLoading.value = false;
     }
@@ -102,7 +144,9 @@ class Issuancecontroller extends GetxController {
     }
   }
 
-  Future<bool> addEALIssuance({
+  /// Records one issuance. Returns null when the server accepted it,
+  /// otherwise the message to show the operator inline.
+  Future<String?> addEALIssuance({
     required Company? company,
     required DateTime dateIssued,
     required String market,
@@ -133,6 +177,7 @@ class Issuancecontroller extends GetxController {
         options: Options(
           validateStatus: (status) =>
               status != null && status < 500, // Accept 400-499
+          extra: const {'silent': true},
         ),
       );
       if (res.statusCode == 201) {
@@ -151,23 +196,17 @@ class Issuancecontroller extends GetxController {
             usedSerialRanges: [],
           ),
         );
-        return true;
-      } else {
-        isLoading.value = false;
-        Get.snackbar(
-          'Failed',
-          res.data['message'] ?? 'Server responded with ${res.statusCode}',
-          duration: const Duration(seconds: 5),
-          backgroundColor: Colors.red[100],
-          colorText: Colors.red[900],
-          icon: const Icon(Icons.warning_amber_rounded, color: Colors.red),
-        );
-        return false;
+        return null;
       }
-    } catch (e) {
-      isLoading.value = false;
-      Get.snackbar('Error', 'Failed to submit: $e');
-      return false;
+
+      return readableResponseError(
+        res,
+        'The server would not record this issuance.',
+      );
+    } on DioException catch (e) {
+      return readableDioError(e, 'Could not record this issuance.');
+    } catch (_) {
+      return 'Could not record this issuance.';
     } finally {
       isLoading.value = false;
     }

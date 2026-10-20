@@ -1,15 +1,18 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+
+import 'package:eal_scanner/branding.dart';
+import 'package:eal_scanner/controllers/dashboardController.dart';
 import 'package:eal_scanner/controllers/dispatchController.dart';
 import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/controllers/usageController.dart';
-import 'package:flutter/material.dart';
-import 'package:eal_scanner/branding.dart';
-import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
-
-import 'package:eal_scanner/screens/dashboardScreen.dart';
 import 'package:eal_scanner/screens/login.dart';
 import 'package:eal_scanner/services/authService.dart';
+import 'package:eal_scanner/theme/app_theme.dart';
+import 'package:eal_scanner/widgets/ui/app_shell.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
@@ -17,21 +20,19 @@ void main() async {
   Get.lazyPut(() => Issuancecontroller(), fenix: true);
   Get.lazyPut(() => UsageController(), fenix: true);
   Get.lazyPut(() => LoginController(), fenix: true);
+  Get.lazyPut(() => DashboardController(), fenix: true);
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: AppBrand.name,
-      theme: ThemeData(primarySwatch: Colors.grey),
-      home: AuthService.isLoggedIn()
-          ? const DashboardScreen()
-          : const LoginScreen(),
+      theme: AppTheme.light,
+      home: AuthService.isLoggedIn() ? const AppShell() : const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

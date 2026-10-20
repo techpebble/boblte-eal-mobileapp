@@ -1,4 +1,4 @@
-package com.example.eal_scanner
+package com.techpebble.eal_track
 
 import io.flutter.embedding.android.FlutterActivity
 

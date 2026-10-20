@@ -1,182 +1,329 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:eal_scanner/controllers/dispatchController.dart';
 import 'package:eal_scanner/models/dispatch.dart';
 import 'package:eal_scanner/screens/dispatches/DispatchDetailScreen.dart';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:get/get.dart';
-import '../../controllers/dispatchController.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
+import 'package:eal_scanner/widgets/ui/list_header.dart';
 
-class DispatchListScreen extends StatelessWidget {
+/// Dispatch notes for the day.
+///
+/// Notes short of EAL links lead the list and carry their shortfall in words;
+/// the old screen tinted the whole card by status and left the quantity
+/// mismatch to a red number.
+class DispatchListScreen extends StatefulWidget {
   const DispatchListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final controller = Get.find<DispatchController>();
+  State<DispatchListScreen> createState() => _DispatchListScreenState();
+}
 
-    // Run fetch only when widget is loaded first
+class _DispatchListScreenState extends State<DispatchListScreen> {
+  final DispatchController _controller = Get.find<DispatchController>();
+  bool _requested = false;
+
+  @override
+  void initState() {
+    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.dispatches.isEmpty) {
-        controller.fetchDispatches();
+      if (!_requested && _controller.dispatches.isEmpty) {
+        _requested = true;
+        _controller.fetchDispatches();
       }
     });
+  }
 
-    return Obx(() {
-      return Stack(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      body: Column(
         children: [
-          Scaffold(
-            backgroundColor: Colors.grey[50],
-            appBar: AppBar(
-              title: const Text('Dispatches', style: TextStyle(
-                fontWeight: FontWeight.w600,
-              ),),
-              backgroundColor: Colors.grey[50],
-              foregroundColor: Colors.deepOrange,
-              elevation: 0,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.date_range),
-                  onPressed: controller.pickDate,
-                  tooltip: 'Pick Date',
-                ),
-              ],
-            ),
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      onChanged: (val) => controller.searchQuery.value = val,
-                      decoration: InputDecoration(
-                        hintText: 'Search by Delivery Location',
-                        hintStyle: const TextStyle(color: Colors.black54),
-                        prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                  ),
-                ),
-                Obx(() => Padding(
-                  padding: const EdgeInsets.only(bottom: 8, top: 8),
-                  child: Text(
-                    'Showing dispatches for: ${DateFormat('dd MMM yyyy').format(controller.selectedDate.value)}',
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                )),
-                Expanded(
-                  child: Obx(() {
-                    final results = controller.filteredDispatches;
-
-                    if (results.isEmpty) {
-                      return const Center(child: Text("No dispatches found."));
-                    }
-
-                    return RefreshIndicator(
-                      onRefresh: () async => controller.fetchDispatches(),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        itemCount: results.length,
-                        itemBuilder: (context, index) {
-                          final DispatchModel d = results[index];
-
-                          return GestureDetector(
-                            onTap: () => Get.to(() => DispatchDetailScreen(dispatchId: d.id)),
-                            child: Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 6,
-                              margin: const EdgeInsets.symmetric(vertical: 10),
-                              color: controller.getStatusColor(d.status),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            d.depotName,
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: controller.getStatusChipColor(d.status),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            d.status.toUpperCase(),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text('Market: ${d.market[0].toUpperCase()}${d.market.substring(1)}'),
-                                    Text('Date: ${DateFormat('dd-MMM-yyyy').format(d.dateDispatched)}'),
-                                    Text('Company: ${d.companyName}'),
-                                    const Divider(height: 20, color: Colors.grey),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text("Total Qty", style: TextStyle(fontWeight: FontWeight.bold)),
-                                        Text("${d.totalQuantity} cases"),
-                                        const Text("EAL Linked", style: TextStyle(fontWeight: FontWeight.bold)),
-                                        Text("${d.issuedQty} cases"),
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }),
-                ),
-              ],
+          Obx(
+            () => ListScreenHeader(
+              title: 'Dispatches',
+              countLabel: _controller.isLoading.value
+                  ? null
+                  : '${_controller.dispatches.length} '
+                      '${_controller.dispatches.length == 1 ? 'note' : 'notes'}',
+              searchHint: 'Depot, vehicle or driver',
+              onSearchChanged: (v) => _controller.searchQuery.value = v,
+              dateLabel: formatDayMonth(_controller.selectedDate.value),
+              onPickDate: _controller.pickDate,
+              accent: AppColors.amber,
+              showProgress: _controller.isLoading.value &&
+                  _controller.dispatches.isNotEmpty,
             ),
           ),
-          // 🔄 Fullscreen Loading Overlay (covers AppBar too)
-          if (controller.isLoading.value)
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: Colors.black26,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.indigo),
+
+          Obx(() => _FilterRow(controller: _controller)),
+
+          Expanded(child: Obx(_buildBody)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    final error = _controller.errorMessage.value;
+
+    if (_controller.isLoading.value && _controller.dispatches.isEmpty) {
+      return const SkeletonList();
+    }
+
+    if (error.isNotEmpty && _controller.dispatches.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpace.gutter),
+        child: NoticeBanner(
+          level: NoticeLevel.error,
+          title: 'Could not load dispatches',
+          message: error,
+          trailing: TextButton(
+            onPressed: _controller.fetchDispatches,
+            child: const Text('Retry'),
+          ),
+        ),
+      );
+    }
+
+    final rows = _controller.filteredDispatches
+      // Notes needing labels first, then by stage.
+      ..sort((a, b) {
+        final aShort = _controller.isShortOfLabels(a) ? 0 : 1;
+        final bShort = _controller.isShortOfLabels(b) ? 0 : 1;
+        if (aShort != bShort) return aShort - bShort;
+        return dispatchStageIndex(a.status) - dispatchStageIndex(b.status);
+      });
+
+    if (rows.isEmpty) {
+      final filtering = _controller.searchQuery.value.trim().isNotEmpty ||
+          _controller.statusFilter.value.isNotEmpty;
+
+      if (filtering) {
+        return EmptyState(
+          icon: Icons.filter_alt_off_outlined,
+          title: 'Nothing matches those filters',
+          message: 'Clear the status filter or the search to see the whole '
+              'day again.',
+          accent: AppColors.amber,
+          tint: AppColors.amberTint,
+          primaryLabel: 'Clear filters',
+          onPrimary: () {
+            _controller.searchQuery.value = '';
+            _controller.statusFilter.value = '';
+          },
+        );
+      }
+
+      return EmptyState(
+        icon: Icons.local_shipping_outlined,
+        title: 'No dispatches on '
+            '${formatDayMonthYear(_controller.selectedDate.value)}',
+        message: 'Dispatch notes are raised in the back office. Widen the '
+            'range if you are looking for an earlier one.',
+        accent: AppColors.amber,
+        tint: AppColors.amberTint,
+        primaryLabel: 'Show the last 7 days',
+        onPrimary: () =>
+            _controller.setRange(endDate: DateTime.now(), days: 7),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.amber,
+      onRefresh: () async => _controller.fetchDispatches(),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter,
+          AppSpace.md,
+          AppSpace.gutter,
+          AppSpace.xxl,
+        ),
+        itemCount: rows.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, i) => _DispatchCard(
+          dispatch: rows[i],
+          isShort: _controller.isShortOfLabels(rows[i]),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.controller});
+
+  final DispatchController controller;
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final selected = controller.selectedDate.value;
+    final days = controller.rangeDays.value;
+    final status = controller.statusFilter.value;
+
+    final isToday = days == 1 && _isSameDay(selected, now);
+    final isWeek = days == 7;
+    final short = controller.shortCount;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.md),
+      child: FilterPillRow(
+        children: [
+          // The filter that gets acted on, first.
+          if (short > 0)
+            FilterPill(
+              label: 'Short $short',
+              selected: status == 'short',
+              accent: AppColors.caution,
+              leading: Icon(
+                Icons.warning_amber_rounded,
+                size: 13,
+                color: status == 'short' ? Colors.white : AppColors.caution,
+              ),
+              onTap: () => controller.setStatusFilter('short'),
+            ),
+          FilterPill(
+            label: 'Today',
+            selected: isToday && status.isEmpty,
+            accent: AppColors.amber,
+            onTap: () {
+              controller.statusFilter.value = '';
+              controller.setRange(endDate: DateTime.now());
+            },
+          ),
+          FilterPill(
+            label: 'Last 7 days',
+            selected: isWeek,
+            accent: AppColors.amber,
+            onTap: () => controller.setRange(endDate: DateTime.now(), days: 7),
+          ),
+          for (final stage in kDispatchStages)
+            FilterPill(
+              label: titleCase(stage),
+              selected: status == stage,
+              accent: AppColors.amber,
+              onTap: () => controller.setStatusFilter(stage),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DispatchCard extends StatelessWidget {
+  const _DispatchCard({required this.dispatch, required this.isShort});
+
+  final DispatchModel dispatch;
+  final bool isShort;
+
+  @override
+  Widget build(BuildContext context) {
+    final outstanding = dispatch.totalQuantity - dispatch.issuedQty;
+    final notStarted = dispatch.issuedQty <= 0;
+
+    return AppCard(
+      onTap: () => Get.to(() => DispatchDetailScreen(dispatchId: dispatch.id)),
+      borderColor: isShort ? AppColors.cautionLine : AppColors.line,
+      borderWidth: isShort ? 1.5 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dispatch.depotName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        titleCase(dispatch.market),
+                        dispatch.vehicleNumber.trim().isEmpty
+                            ? 'vehicle not set'
+                            : dispatch.vehicleNumber,
+                      ].join(' · '),
+                      style: AppText.small,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              DispatchStatusPill(dispatch.status),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          LinkedProgressBar(
+            linked: dispatch.issuedQty,
+            required_: dispatch.totalQuantity,
+            label: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: formatQty(dispatch.issuedQty),
+                    style: AppText.mono(size: 12.5, weight: FontWeight.w600),
+                  ),
+                  TextSpan(
+                    text: ' of ${formatCases(dispatch.totalQuantity)} linked',
+                    style: AppText.small,
+                  ),
+                ],
               ),
             ),
-        ]
-      );
-    });
+            trailing: isShort
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 13,
+                        color: AppColors.caution,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        notStarted
+                            ? 'Not started'
+                            : '${formatQty(outstanding)} short',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.cautionDeep,
+                        ),
+                      ),
+                    ],
+                  )
+                : const Text(
+                    'Complete',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.greenDeep,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }

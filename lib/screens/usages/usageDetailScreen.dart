@@ -1,135 +1,296 @@
-import 'package:eal_scanner/models/usage.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import 'package:eal_scanner/models/usage.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
+import 'package:eal_scanner/widgets/ui/serial_text.dart';
+
+/// One production entry. The headline figure is cases, because that is the
+/// unit the floor counts in; labels sit beside it.
+///
+/// The old screen's app bar read "EAL Issuance Detail" here.
 class EALUsageDetailScreen extends StatelessWidget {
+  const EALUsageDetailScreen({super.key, required this.usage});
+
   final UsageModel usage;
 
-  const EALUsageDetailScreen({super.key, required this.usage});
+  int get _from => int.tryParse(usage.serialFrom) ?? 0;
+  int get _to => int.tryParse(usage.serialTo) ?? 0;
 
   @override
   Widget build(BuildContext context) {
+    final ranges = usage.usedSerialRanges;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('EAL Issuance Detail', style: TextStyle(
-          fontWeight: FontWeight.w600,
-        ),),
-        backgroundColor: Colors.grey.shade50,
-        foregroundColor: Colors.teal,
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
+        shape: const Border(
+          bottom: BorderSide(color: AppColors.line, width: 1),
+        ),
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              color: Colors.teal.shade50,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 6,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            Text(
+              usage.itemName,
+              style: AppText.appBarTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              'Entered ${formatDayMonthYear(usage.dateUsed)} · '
+              '${formatClock(usage.dateUsed)}',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter,
+          AppSpace.lg,
+          AppSpace.gutter,
+          AppSpace.xxl,
+        ),
+        children: [
+          AppCard(
+            radius: AppRadius.card,
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            usage.itemName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                        const Text('PRODUCED', style: AppText.section),
+                        const SizedBox(height: 3),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              formatQty(usage.usedQuantityInCases),
+                              style: AppText.figure(
+                                size: 33,
+                                color: AppColors.tealDeep,
+                              ),
                             ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            DateFormat('dd-MMM-yyyy').format(usage.dateUsed).toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
+                            const SizedBox(width: 7),
+                            const Text(
+                              'cases',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink500,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text('From: ${usage.prefix + usage.serialFrom.toString().padLeft(10, '0')}'),
-                    const SizedBox(height: 4),
-                    Text('To: ${usage.prefix + usage.serialTo.toString().padLeft(10, '0')}'),
-                    const SizedBox(height: 4),
-                    Text('Company: ${usage.companyName}'),
-                    const SizedBox(height: 4),
-                    const Divider(height: 15, color: Colors.grey),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Issued Qty", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${_formatNumber(usage.usedQuantityInCases)} Cs"),
-                        const Text("Balance Qty", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${_formatNumber(usage.balanceQuantityInCases)} Cs"),
-                      ],
-                    )
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 5),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            formatQty(usage.usedQuantity),
+                            style: AppText.mono(
+                              size: 16,
+                              weight: FontWeight.w600,
+                              color: AppColors.ink700,
+                            ),
+                          ),
+                          const Text('labels', style: AppText.micro),
+                        ],
+                      ),
+                    ),
                   ],
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.only(top: AppSpace.lg, bottom: 3),
+                  child: Divider(),
+                ),
+
+                _MetaRow(
+                  label: 'Labels used',
+                  child: SerialRangeText(
+                    prefix: usage.prefix,
+                    from: _from,
+                    to: _to,
+                    size: 13.5,
+                    showPrefix: false,
+                  ),
+                ),
+                _MetaRow(
+                  label: 'Pack',
+                  child: Text(usage.packName, style: AppText.label),
+                ),
+                _MetaRow(
+                  label: 'Market',
+                  child: MarketChip(usage.market, dense: true),
+                ),
+                _MetaRow(
+                  label: 'Company',
+                  isLast: true,
+                  child: Text(
+                    usage.companyName,
+                    style: AppText.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppSpace.xl),
+          SectionHeading(
+            'Ranges in this entry',
+            trailing: Text(
+              '${ranges.length}',
+              style: AppText.mono(
+                size: 12,
+                weight: FontWeight.w600,
+                color: AppColors.ink500,
+              ),
+            ),
+          ),
+
+          if (ranges.isEmpty)
+            AppCard(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'This entry was recorded as a single range.',
+                style: AppText.small,
+              ),
+            )
+          else
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < ranges.length; i++)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
+                      decoration: BoxDecoration(
+                        border: i == ranges.length - 1
+                            ? null
+                            : const Border(
+                                bottom: BorderSide(
+                                  color: AppColors.lineSoft,
+                                  width: 1,
+                                ),
+                              ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: const BoxDecoration(
+                              color: AppColors.tealTint,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(8),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 16,
+                              color: AppColors.teal,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SerialRangeText(
+                              prefix: usage.prefix,
+                              from: ranges[i].serialFrom,
+                              to: ranges[i].serialTo,
+                              size: 13.5,
+                              showPrefix: false,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Pill(
+                            label: formatQty(ranges[i].total),
+                            background: AppColors.tealTint,
+                            foreground: AppColors.tealDeep,
+                            fontSize: 12,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: AppSpace.lg),
+          AppCard(
+            child: LinkedProgressBar(
+              linked: usage.usedQuantityInCases,
+              required_: usage.usedQuantityInCases +
+                  usage.balanceQuantityInCases,
+              accent: AppColors.teal,
+              label: Text(
+                'Left on this issuance',
+                style: AppText.small,
+              ),
+              trailing: Text(
+                formatCases(usage.balanceQuantityInCases),
+                style: AppText.mono(
+                  size: 12.5,
+                  weight: FontWeight.w600,
+                  color: AppColors.caution,
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Used EAL Ranges',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: usage.usedSerialRanges.length,
-              separatorBuilder: (_, __) => const Divider(height: 0),
-              itemBuilder: (context, index) {
-                final range = usage.usedSerialRanges[index];
-                final from = range.serialFrom;
-                final to = range.serialTo;
-
-                return ListTile(
-                  tileColor: Colors.white,
-                  leading: const Icon(Icons.qr_code_2, color: Colors.teal),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('From: ${usage.prefix}${from.toString().padLeft(10, '0')}'),
-                      const SizedBox(height: 6),
-                      Text('To:      ${usage.prefix}${to.toString().padLeft(10, '0')}'),
-                    ],
-                  ),
-                  trailing: Chip(
-                    label: Text(_formatNumber(range.total), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    backgroundColor: Colors.teal.shade100,
-                    side: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                );
-              },
-            )
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-String _formatNumber(int number) {
-  return NumberFormat.decimalPattern().format(number); // e.g., 48,000
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({
+    required this.label,
+    required this.child,
+    this.isLast = false,
+  });
+
+  final String label;
+  final Widget child;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : const Border(
+                bottom: BorderSide(color: AppColors.lineSoft, width: 1),
+              ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(label, style: AppText.small),
+          ),
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: child)),
+        ],
+      ),
+    );
+  }
 }
