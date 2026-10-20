@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/models/issuance.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
@@ -9,14 +11,29 @@ import 'package:eal_scanner/widgets/ui/serial_text.dart';
 
 /// One issuance: the range it covers, how much of it is spent, and the runs
 /// that spent it.
-class EALIssuanceDetailScreen extends StatelessWidget {
+class EALIssuanceDetailScreen extends StatefulWidget {
   const EALIssuanceDetailScreen({super.key, required this.issuance});
 
   final IssuanceModel issuance;
 
+  @override
+  State<EALIssuanceDetailScreen> createState() =>
+      _EALIssuanceDetailScreenState();
+}
+
+class _EALIssuanceDetailScreenState extends State<EALIssuanceDetailScreen> {
+  bool _busy = false;
+  String _error = '';
+
+  IssuanceModel get issuance => widget.issuance;
+
   int get _from => int.tryParse(issuance.serialFrom) ?? 0;
   int get _to => int.tryParse(issuance.serialTo) ?? 0;
   int get _used => issuance.issuedQuantity - issuance.balanceQuantity;
+
+  /// Removable only while nothing has been drawn from it. The server checks
+  /// this too and is the real guard; this just keeps the option honest.
+  bool get _untouched => _used <= 0 && issuance.usedSerialRanges.isEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +61,43 @@ class EALIssuanceDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+        actions: [
+          PopupMenuButton<String>(
+            enabled: !_busy,
+            tooltip: 'More options',
+            onSelected: (_) => _confirmRemove(),
+            itemBuilder: (_) => [
+              PopupMenuItem<String>(
+                value: 'remove',
+                // Listed either way: an option that vanishes leaves people
+                // hunting for it. Disabled, it says why instead.
+                enabled: _untouched,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Remove issuance',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: _untouched ? AppColors.red : AppColors.ink500,
+                      ),
+                    ),
+                    if (!_untouched)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${formatQty(_used)} labels already used',
+                          style: AppText.micro,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -53,6 +107,19 @@ class EALIssuanceDetailScreen extends StatelessWidget {
           AppSpace.xxl,
         ),
         children: [
+          if (_error.isNotEmpty) ...[
+            NoticeBanner(
+              level: NoticeLevel.error,
+              title: 'Could not remove this issuance',
+              message: _error,
+              trailing: IconButton(
+                onPressed: () => setState(() => _error = ''),
+                icon: const Icon(Icons.close_rounded, size: 18),
+                tooltip: 'Dismiss',
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+          ],
           AppCard(
             radius: AppRadius.card,
             padding: const EdgeInsets.all(AppSpace.lg),
@@ -179,6 +246,87 @@ class EALIssuanceDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Confirms, then removes. The dialog repeats the range and the quantity,
+  /// because an issuance is identified by its serials and nothing else.
+  Future<void> _confirmRemove() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove this issuance?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Nothing has been applied from it, so removing it takes '
+              '${formatLabels(issuance.issuedQuantity)} back off the books. '
+              'This cannot be undone.',
+              style: AppText.bodyMuted,
+            ),
+            const SizedBox(height: AppSpace.lg),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: AppColors.canvas,
+                borderRadius: AppRadius.brControl,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(issuance.packName, style: AppText.label),
+                  const SizedBox(height: 6),
+                  SerialRangeText(
+                    prefix: issuance.prefix,
+                    from: _from,
+                    to: _to,
+                    size: 13.5,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep it'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.red,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+
+    final error =
+        await Get.find<Issuancecontroller>().deleteEALIssuance(issuance.id);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+      return;
+    }
+
+    // The controller has already dropped it from the list behind us.
+    Navigator.of(context).pop();
   }
 }
 

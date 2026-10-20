@@ -211,4 +211,44 @@ class Issuancecontroller extends GetxController {
       isLoading.value = false;
     }
   }
+
+  /// Removes an issuance that has not been drawn on.
+  ///
+  /// The server is the authority here: it refuses while any production entry
+  /// points at the issuance, so the check in the UI is a courtesy, not the
+  /// guard. Returns null on success, otherwise the message to show.
+  Future<String?> deleteEALIssuance(String id) async {
+    if (id.trim().isEmpty) {
+      return 'This issuance has no ID, so it cannot be removed.';
+    }
+
+    try {
+      isLoading.value = true;
+      final Dio dio = DioClient().dio;
+
+      final res = await dio.delete(
+        'eal_issuance/$id',
+        options: Options(
+          validateStatus: (status) => status != null && status < 500,
+          extra: const {'silent': true},
+        ),
+      );
+
+      if (res.statusCode == 200) {
+        ealIssuance.removeWhere((i) => i.id == id);
+        return null;
+      }
+
+      return readableResponseError(
+        res,
+        'The server would not remove this issuance.',
+      );
+    } on DioException catch (e) {
+      return readableDioError(e, 'Could not remove this issuance.');
+    } catch (_) {
+      return 'Could not remove this issuance.';
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }
