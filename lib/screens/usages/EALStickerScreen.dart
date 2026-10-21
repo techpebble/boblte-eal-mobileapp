@@ -62,11 +62,10 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
     final chosen = await showPickerSheet<Item>(
       context: context,
       title: 'Choose item',
-      subtitle: 'Only items active right now can be entered.',
+      subtitle: 'Active items only.',
       searchHint: 'Item name or code',
       accent: AppColors.teal,
       selected: _item,
-      showActiveFilter: true,
       emptyMessage: 'No active items found.',
       recentValues: _controller.items
           .where((i) => recentIds.contains(i.displayName))

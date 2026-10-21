@@ -52,7 +52,6 @@ Future<T?> showPickerSheet<T>({
   Color accent = AppColors.blue,
   List<T> recentValues = const [],
   String recentLabel = 'Used today',
-  bool showActiveFilter = false,
   String? emptyMessage,
 }) {
   return showModalBottomSheet<T>(
@@ -68,7 +67,6 @@ Future<T?> showPickerSheet<T>({
       accent: accent,
       recentValues: recentValues,
       recentLabel: recentLabel,
-      showActiveFilter: showActiveFilter,
       emptyMessage: emptyMessage,
     ),
   );
@@ -82,7 +80,6 @@ class _PickerSheet<T> extends StatefulWidget {
     required this.accent,
     required this.recentValues,
     required this.recentLabel,
-    required this.showActiveFilter,
     this.subtitle,
     this.selected,
     this.emptyMessage,
@@ -96,7 +93,6 @@ class _PickerSheet<T> extends StatefulWidget {
   final Color accent;
   final List<T> recentValues;
   final String recentLabel;
-  final bool showActiveFilter;
   final String? emptyMessage;
 
   @override
@@ -105,13 +101,11 @@ class _PickerSheet<T> extends StatefulWidget {
 
 class _PickerSheetState<T> extends State<_PickerSheet<T>> {
   String _query = '';
-  bool _activeOnly = true;
 
   List<PickerOption<T>> get _visible {
     final q = _query.trim().toLowerCase();
 
     return widget.options.where((o) {
-      if (widget.showActiveFilter && _activeOnly && !o.isActive) return false;
       if (q.isEmpty) return true;
       return o._haystack.contains(q);
     }).toList();
@@ -191,19 +185,6 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                           style: AppText.small,
                         ),
                       ),
-                      if (widget.showActiveFilter)
-                        Row(
-                          children: [
-                            Text('Active only', style: AppText.small),
-                            const SizedBox(width: 6),
-                            Switch.adaptive(
-                              value: _activeOnly,
-                              onChanged: (v) =>
-                                  setState(() => _activeOnly = v),
-                              activeTrackColor: widget.accent,
-                            ),
-                          ],
-                        ),
                     ],
                   ),
                 ],

@@ -54,4 +54,49 @@ void main() {
     expect(find.text('Test item'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('the item picker lists active items with no toggle to undo it', (
+    tester,
+  ) async {
+    Get.put(UsageController());
+    DioClient().dio.httpClientAdapter = FakeApiAdapter({
+      'count': 1,
+      'data': [itemResponse(isActive: true)],
+    });
+
+    await tester.pumpWidget(const GetMaterialApp(home: EALStickerScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Choose item'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Test item'), findsOneWidget);
+
+    // The list is fetched active-only, so a switch over it could only ever
+    // turn off a filter that nothing needs.
+    expect(find.text('Active only'), findsNothing);
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('Active items only.'), findsOneWidget);
+  });
+
+  testWidgets('the request asks the server for active items only', (
+    tester,
+  ) async {
+    Get.put(UsageController());
+    final api = FakeApiAdapter({
+      'count': 1,
+      'data': [itemResponse(isActive: true)],
+    });
+    DioClient().dio.httpClientAdapter = api;
+
+    await tester.pumpWidget(const GetMaterialApp(home: EALStickerScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose item'));
+    await tester.pumpAndSettle();
+
+    final itemRequests =
+        api.requests.where((r) => r.path.contains('items')).toList();
+    expect(itemRequests, isNotEmpty);
+    expect(itemRequests.last.queryParameters['isActive'], 'true');
+  });
 }
