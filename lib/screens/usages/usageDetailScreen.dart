@@ -31,15 +31,6 @@ class EALUsageDetailScreen extends StatelessWidget {
   bool get _allDispatched => _waitingCases <= 0;
   bool get _noneDispatched => _dispatchedCases <= 0;
 
-  /// Worth a section of its own only when it says something the card above
-  /// does not: more than one range, or a single one that differs from the
-  /// entry's own.
-  bool get _showRanges {
-    final ranges = usage.usedSerialRanges;
-    if (ranges.length > 1) return true;
-    if (ranges.isEmpty) return false;
-    return ranges.single.serialFrom != _from || ranges.single.serialTo != _to;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -171,10 +162,78 @@ class EALUsageDetailScreen extends StatelessWidget {
             ),
           ),
 
-          if (_showRanges) ...[
           const SizedBox(height: AppSpace.xl),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Waiting for dispatch',
+                        style: AppText.small,
+                      ),
+                    ),
+                    Text(
+                      formatCases(_waitingCases),
+                      style: AppText.mono(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: _allDispatched
+                            ? AppColors.ink500
+                            : AppColors.ink900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                LinkedProgressBar(
+                  linked: _dispatchedCases,
+                  required_: usage.usedQuantityInCases == 0
+                      ? 1
+                      : usage.usedQuantityInCases,
+                  height: 7,
+                  accent: _allDispatched ? AppColors.green : AppColors.teal,
+                ),
+                const SizedBox(height: 8),
+                if (_allDispatched)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: AppColors.green,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'All ${formatCases(usage.usedQuantityInCases)} have '
+                          'gone out on a dispatch.',
+                          style: AppText.micro,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (_noneDispatched)
+                  Text(
+                    'None of this run has gone out yet — '
+                    '${formatLabels(_waitingLabels)} waiting.',
+                    style: AppText.micro,
+                  )
+                else
+                  Text(
+                    '${formatQty(_dispatchedCases)} of '
+                    '${formatCases(usage.usedQuantityInCases)} dispatched · '
+                    '${formatLabels(_waitingLabels)} waiting.',
+                    style: AppText.micro,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpace.lg),
           SectionHeading(
-            'Ranges in this entry',
+            'Ranges dispatched',
             trailing: Text(
               '${ranges.length}',
               style: AppText.mono(
@@ -185,7 +244,19 @@ class EALUsageDetailScreen extends StatelessWidget {
             ),
           ),
 
-          AppCard(
+          if (ranges.isEmpty)
+            AppCard(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                _allDispatched
+                    ? 'It has all gone out, but the ranges were not recorded '
+                        'against this entry.'
+                    : 'Nothing from this run has gone out on a dispatch yet.',
+                style: AppText.small,
+              ),
+            )
+          else
+            AppCard(
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
@@ -245,67 +316,7 @@ class EALUsageDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ],
 
-          const SizedBox(height: AppSpace.lg),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Waiting for dispatch',
-                        style: AppText.small,
-                      ),
-                    ),
-                    Text(
-                      formatCases(_waitingCases),
-                      style: AppText.mono(
-                        size: 14,
-                        weight: FontWeight.w600,
-                        color: _allDispatched
-                            ? AppColors.ink500
-                            : AppColors.ink900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                if (_allDispatched)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.check_rounded,
-                        size: 14,
-                        color: AppColors.green,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'All ${formatCases(usage.usedQuantityInCases)} have '
-                          'gone out on a dispatch.',
-                          style: AppText.micro,
-                        ),
-                      ),
-                    ],
-                  )
-                else if (_noneDispatched)
-                  Text(
-                    '${formatLabels(_waitingLabels)}, none of it dispatched '
-                    'yet.',
-                    style: AppText.micro,
-                  )
-                else
-                  Text(
-                    '${formatLabels(_waitingLabels)}. '
-                    '${formatCases(_dispatchedCases)} already dispatched.',
-                    style: AppText.micro,
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:eal_scanner/models/usage.dart';
 import 'package:eal_scanner/screens/usages/usageDetailScreen.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -53,79 +54,91 @@ void main() {
     expect(find.textContaining('00:00'), findsNothing);
   });
 
-  testWidgets('a fully dispatched entry says so, with no bar beside a zero', (
-    tester,
-  ) async {
-    await pump(tester, entry(cases: 40, balanceCases: 0, balanceLabels: 0));
+  /// The bar's two numbers, read off the widget rather than the pixels.
+  ({num linked, num required_}) bar(WidgetTester tester) {
+    final w = tester.widget<LinkedProgressBar>(find.byType(LinkedProgressBar));
+    return (linked: w.linked, required_: w.required_);
+  }
 
-    // The balance on a usage counts what has NOT gone out on a dispatch; it
-    // says nothing about the issuance the labels came from.
-    expect(find.text('Waiting for dispatch'), findsOneWidget);
-    expect(find.textContaining('issuance'), findsNothing);
-    expect(find.text('0 cases'), findsOneWidget);
-    expect(
-      find.text('All 40 cases have gone out on a dispatch.'),
-      findsOneWidget,
-    );
-    expect(find.byType(LinearProgressIndicator), findsNothing);
-  });
-
-  testWidgets('an undispatched entry says none of it has gone', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      entry(cases: 33, perCase: 12, balanceCases: 33, balanceLabels: 396),
-    );
-
-    expect(find.text('33 cases'), findsOneWidget);
-    expect(find.text('396 labels, none of it dispatched yet.'), findsOneWidget);
-  });
-
-  testWidgets('a part-dispatched entry says how much has gone', (
-    tester,
-  ) async {
+  testWidgets('the bar measures dispatched against produced', (tester) async {
     await pump(
       tester,
       entry(cases: 40, perCase: 12, balanceCases: 15, balanceLabels: 180),
     );
 
+    // Both figures are on the record: produced, and produced minus waiting.
+    expect(bar(tester).linked, 25);
+    expect(bar(tester).required_, 40);
+
+    expect(find.text('Waiting for dispatch'), findsOneWidget);
     expect(find.text('15 cases'), findsOneWidget);
     expect(
-      find.text('180 labels. 25 cases already dispatched.'),
+      find.text('25 of 40 cases dispatched · 180 labels waiting.'),
       findsOneWidget,
     );
   });
 
-  testWidgets('a single range matching the entry is not listed twice', (
+  testWidgets('a fully dispatched entry fills the bar and says so', (
+    tester,
+  ) async {
+    await pump(tester, entry(cases: 40, balanceCases: 0, balanceLabels: 0));
+
+    expect(bar(tester).linked, 40);
+    expect(bar(tester).required_, 40);
+    expect(find.text('0 cases'), findsOneWidget);
+    expect(
+      find.text('All 40 cases have gone out on a dispatch.'),
+      findsOneWidget,
+    );
+
+    // The balance is about dispatch, not the issuance the labels came from.
+    expect(find.textContaining('issuance'), findsNothing);
+  });
+
+  testWidgets('an undispatched entry leaves the bar empty', (tester) async {
+    await pump(
+      tester,
+      entry(cases: 33, perCase: 12, balanceCases: 33, balanceLabels: 396),
+    );
+
+    expect(bar(tester).linked, 0);
+    expect(bar(tester).required_, 33);
+    expect(
+      find.text('None of this run has gone out yet — 396 labels waiting.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the dispatched ranges are listed, with their unit', (
     tester,
   ) async {
     await pump(
       tester,
       entry(
+        cases: 40,
+        balanceCases: 20,
+        balanceLabels: 240,
         ranges: [
-          SerialRangeModel(total: 480, serialFrom: 110739001, serialTo: 110739480),
+          SerialRangeModel(total: 120, serialFrom: 110739001, serialTo: 110739120),
+          SerialRangeModel(total: 120, serialFrom: 110739121, serialTo: 110739240),
         ],
       ),
     );
 
-    expect(find.text('Labels used'), findsOneWidget);
-    expect(find.text('RANGES IN THIS ENTRY'), findsNothing);
+    expect(find.text('RANGES DISPATCHED'), findsOneWidget);
+    expect(find.text('120 labels'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('several ranges are listed, with their unit', (tester) async {
-    await pump(
-      tester,
-      entry(
-        ranges: [
-          SerialRangeModel(total: 240, serialFrom: 110739001, serialTo: 110739240),
-          SerialRangeModel(total: 240, serialFrom: 110739241, serialTo: 110739480),
-        ],
-      ),
-    );
+  testWidgets('nothing dispatched says so where the ranges would be', (
+    tester,
+  ) async {
+    await pump(tester, entry(cases: 33, balanceCases: 33, balanceLabels: 396));
 
-    expect(find.text('RANGES IN THIS ENTRY'), findsOneWidget);
-    expect(find.text('240 labels'), findsNWidgets(2));
-    expect(tester.takeException(), isNull);
+    expect(find.text('RANGES DISPATCHED'), findsOneWidget);
+    expect(
+      find.text('Nothing from this run has gone out on a dispatch yet.'),
+      findsOneWidget,
+    );
   });
 }
