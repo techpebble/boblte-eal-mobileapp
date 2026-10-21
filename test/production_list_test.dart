@@ -2,6 +2,7 @@ import 'package:eal_scanner/controllers/usageController.dart';
 import 'package:eal_scanner/screens/usages/production_filter_sheet.dart';
 import 'package:eal_scanner/screens/usages/usagesListScreen.dart';
 import 'package:eal_scanner/services/dioClient.dart';
+import 'package:eal_scanner/utils/formatting.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -139,6 +140,29 @@ void main() {
 
     expect(find.text('Dates'), findsOneWidget);
     expect(find.text('Show these dates'), findsOneWidget);
+  });
+
+  testWidgets('the empty state names the date it is empty for', (
+    tester,
+  ) async {
+    DioClient().dio.httpClientAdapter =
+        FakeApiRouter({'eal_usage': {'count': 0, 'data': []}});
+
+    await pumpList(tester);
+
+    // The whole point of this screen's empty state is saying which dates it
+    // covers, so the date has to be a date — not an un-run interpolation.
+    expect(find.textContaining('Nothing entered on'), findsOneWidget);
+    expect(
+      find.textContaining(r'${'),
+      findsNothing,
+      reason: 'a Dart interpolation reached the screen as literal text',
+    );
+    expect(
+      find.textContaining(formatDayMonthYear(controller.fromDate.value)),
+      findsOneWidget,
+    );
+    expect(find.text('Record a production entry'), findsOneWidget);
   });
 
   testWidgets('the filter button sits hard against the right edge', (

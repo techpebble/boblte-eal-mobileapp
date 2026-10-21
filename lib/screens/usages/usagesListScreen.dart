@@ -194,7 +194,7 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
         icon: Icons.event_busy_rounded,
         title: _controller.isSingleDay
             ? 'Nothing entered on '
-                '\${formatDayMonthYear(_controller.fromDate.value)}'
+                '${formatDayMonthYear(_controller.fromDate.value)}'
             : 'Nothing entered in these dates',
         message: 'No filters are on, so this is every entry for the dates. '
             'Widen them, or record the run you have in hand.',
@@ -219,7 +219,13 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
         ),
         itemCount: groups.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (_, i) => _GroupCard(group: groups[i]),
+        // The date is worth a row's width only when the span covers more
+        // than one day; the server keeps no time of day, so a clock there
+        // would read 00:00 on every entry.
+        itemBuilder: (_, i) => _GroupCard(
+          group: groups[i],
+          showDates: !_controller.isSingleDay,
+        ),
       ),
     );
   }
@@ -468,9 +474,10 @@ class _SummaryFigure extends StatelessWidget {
 
 /// One company and market, with its items banded inside.
 class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.group});
+  const _GroupCard({required this.group, required this.showDates});
 
   final UsageGroup group;
+  final bool showDates;
 
   @override
   Widget build(BuildContext context) {
@@ -560,7 +567,8 @@ class _GroupCard extends StatelessWidget {
                 ],
               ),
             ),
-            for (final row in item.rows) _EntryRow(usage: row),
+            for (final row in item.rows)
+              _EntryRow(usage: row, showDate: showDates),
           ],
         ],
       ),
@@ -616,12 +624,14 @@ class _CasesLabels extends StatelessWidget {
 /// One production entry: the range it consumed, what it came to, and when.
 ///
 /// No bar here, unlike issuance: an entry is a withdrawal and has no balance
-/// of its own to drain. The time is the useful thing when several runs go
-/// through in a day.
+/// of its own to drain. The date takes that place while the span covers more
+/// than one day — the server keeps no time of day, so a clock would read
+/// 00:00 on every row.
 class _EntryRow extends StatelessWidget {
-  const _EntryRow({required this.usage});
+  const _EntryRow({required this.usage, required this.showDate});
 
   final UsageModel usage;
+  final bool showDate;
 
   @override
   Widget build(BuildContext context) {
@@ -670,11 +680,13 @@ class _EntryRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  formatClock(usage.dateUsed),
-                  style: AppText.mono(size: 11, color: AppColors.ink500),
-                ),
+                if (showDate) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    formatDayMonth(usage.dateUsed),
+                    style: AppText.mono(size: 11, color: AppColors.ink500),
+                  ),
+                ],
               ],
             ),
           ],

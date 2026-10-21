@@ -50,7 +50,9 @@ class UsageGroup {
 
 /// Groups entries for display. Companies read A to Z, markets local first,
 /// items by the size in their name then alphabetically, and the entries
-/// within an item in the order they were made.
+/// within an item by date then serial — the server stores a date with no
+/// time, so sorting on the date alone leaves same-day entries in whatever
+/// order they arrived.
 List<UsageGroup> groupUsages(List<UsageModel> rows) {
   final byGroup = <String, List<UsageModel>>{};
 
@@ -73,7 +75,13 @@ List<UsageGroup> groupUsages(List<UsageModel> rows) {
         .map(
           (e) => ItemGroup(
             itemName: e.key,
-            rows: e.value..sort((a, b) => a.dateUsed.compareTo(b.dateUsed)),
+            rows: e.value
+              ..sort((a, b) {
+                final byDate = a.dateUsed.compareTo(b.dateUsed);
+                if (byDate != 0) return byDate;
+                return (int.tryParse(a.serialFrom) ?? 0)
+                    .compareTo(int.tryParse(b.serialFrom) ?? 0);
+              }),
           ),
         )
         .toList()
