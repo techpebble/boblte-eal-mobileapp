@@ -19,6 +19,28 @@ class EALUsageDetailScreen extends StatelessWidget {
   int get _from => int.tryParse(usage.serialFrom) ?? 0;
   int get _to => int.tryParse(usage.serialTo) ?? 0;
 
+  /// What this entry produced that has not gone out on a dispatch yet.
+  ///
+  /// On a usage record the balance starts equal to what was produced and is
+  /// drawn down as cases are linked to a dispatch — it says nothing about
+  /// the issuance the labels came from, which keeps its own balance.
+  int get _waitingCases => usage.balanceQuantityInCases;
+  int get _waitingLabels => usage.balanceQuantity;
+  int get _dispatchedCases => usage.usedQuantityInCases - _waitingCases;
+
+  bool get _allDispatched => _waitingCases <= 0;
+  bool get _noneDispatched => _dispatchedCases <= 0;
+
+  /// Worth a section of its own only when it says something the card above
+  /// does not: more than one range, or a single one that differs from the
+  /// entry's own.
+  bool get _showRanges {
+    final ranges = usage.usedSerialRanges;
+    if (ranges.length > 1) return true;
+    if (ranges.isEmpty) return false;
+    return ranges.single.serialFrom != _from || ranges.single.serialTo != _to;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ranges = usage.usedSerialRanges;
@@ -39,8 +61,7 @@ class EALUsageDetailScreen extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'Entered ${formatDayMonthYear(usage.dateUsed)} · '
-              '${formatClock(usage.dateUsed)}',
+              'Entered ${formatDayMonthYear(usage.dateUsed)}',
               style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
             ),
           ],
@@ -150,6 +171,7 @@ class EALUsageDetailScreen extends StatelessWidget {
             ),
           ),
 
+          if (_showRanges) ...[
           const SizedBox(height: AppSpace.xl),
           SectionHeading(
             'Ranges in this entry',
@@ -163,16 +185,7 @@ class EALUsageDetailScreen extends StatelessWidget {
             ),
           ),
 
-          if (ranges.isEmpty)
-            AppCard(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'This entry was recorded as a single range.',
-                style: AppText.small,
-              ),
-            )
-          else
-            AppCard(
+          AppCard(
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
@@ -221,7 +234,7 @@ class EALUsageDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Pill(
-                            label: formatQty(ranges[i].total),
+                            label: formatLabels(ranges[i].total),
                             background: AppColors.tealTint,
                             foreground: AppColors.tealDeep,
                             fontSize: 12,
@@ -232,26 +245,65 @@ class EALUsageDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ],
 
           const SizedBox(height: AppSpace.lg),
           AppCard(
-            child: LinkedProgressBar(
-              linked: usage.usedQuantityInCases,
-              required_: usage.usedQuantityInCases +
-                  usage.balanceQuantityInCases,
-              accent: AppColors.teal,
-              label: Text(
-                'Left on this issuance',
-                style: AppText.small,
-              ),
-              trailing: Text(
-                formatCases(usage.balanceQuantityInCases),
-                style: AppText.mono(
-                  size: 12.5,
-                  weight: FontWeight.w600,
-                  color: AppColors.caution,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Waiting for dispatch',
+                        style: AppText.small,
+                      ),
+                    ),
+                    Text(
+                      formatCases(_waitingCases),
+                      style: AppText.mono(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: _allDispatched
+                            ? AppColors.ink500
+                            : AppColors.ink900,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 5),
+                if (_allDispatched)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: AppColors.green,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'All ${formatCases(usage.usedQuantityInCases)} have '
+                          'gone out on a dispatch.',
+                          style: AppText.micro,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (_noneDispatched)
+                  Text(
+                    '${formatLabels(_waitingLabels)}, none of it dispatched '
+                    'yet.',
+                    style: AppText.micro,
+                  )
+                else
+                  Text(
+                    '${formatLabels(_waitingLabels)}. '
+                    '${formatCases(_dispatchedCases)} already dispatched.',
+                    style: AppText.micro,
+                  ),
+              ],
             ),
           ),
         ],
