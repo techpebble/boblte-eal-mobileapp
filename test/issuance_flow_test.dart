@@ -73,9 +73,9 @@ void main() {
 
   tearDown(() => Get.reset());
 
-  Future<void> pumpList(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 2340);
-    tester.view.devicePixelRatio = 2.8125;
+  Future<void> pumpList(WidgetTester tester, {double width = 384}) async {
+    tester.view.physicalSize = Size(width * 2, 1600);
+    tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(const GetMaterialApp(home: IssuanceListScreen()));
@@ -105,6 +105,34 @@ void main() {
 
     expect(find.byType(TextField), findsNothing);
     expect(find.byIcon(Icons.filter_list_rounded), findsOneWidget);
+  });
+
+  testWidgets('the filter button sits hard against the right edge', (
+    tester,
+  ) async {
+    // Checked at two widths on purpose. The bug this guards against only
+    // shows when the title is NARROWER than the space it was given — a
+    // flexible slot then holds the slack and the button drifts inwards. In
+    // the test font the title fills a phone-width slot, so a phone-width
+    // check alone passes while the device shows the gap.
+    for (final width in const [384.0, 1200.0]) {
+      await pumpList(tester, width: width);
+
+      final button = tester.getRect(find.byIcon(Icons.filter_list_rounded));
+
+      // 18 is the screen gutter; the icon sits 13 inside its own 1.5px
+      // border.
+      expect(
+        button.right,
+        closeTo(width - 18 - 13 - 1.5, 2),
+        reason: 'at ${width}px wide the filter button drifted from the right '
+            'edge, ending at ${button.right}',
+      );
+
+      final title = tester.getRect(find.text('EAL issuance'));
+      expect(title.left, closeTo(18, 1));
+      expect(title.right, lessThan(button.left));
+    }
   });
 
   testWidgets('the filter button opens the sheet, which applies on confirm', (

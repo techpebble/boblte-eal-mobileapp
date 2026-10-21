@@ -264,36 +264,44 @@ class _Header extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Both give way before the filter button does: it is the
-                  // only thing here that has to be tappable.
-                  const Flexible(
-                    child: Text(
-                      'EAL issuance',
-                      style: AppText.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  // The title and count share one Expanded, so all the free
+                  // space lands here and the button stays hard against the
+                  // right edge. Giving them a flex each alongside a Spacer
+                  // split the space three ways instead: the title was cut
+                  // short and its unused slot pushed the button inwards.
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'EAL issuance',
+                            style: AppText.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        if (countLabel != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              countLabel!,
+                              style: AppText.mono(
+                                size: 13,
+                                color: AppColors.ink500,
+                              ),
+                              maxLines: 1,
+                            ),
+                          )
+                        else
+                          const Padding(
+                            padding: EdgeInsets.only(top: 5),
+                            child: SkeletonBox(width: 58, height: 11),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 9),
-                  if (countLabel != null)
-                    Flexible(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          countLabel!,
-                          style:
-                              AppText.mono(size: 13, color: AppColors.ink500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.only(top: 5),
-                      child: SkeletonBox(width: 58, height: 11),
-                    ),
-                  const Spacer(),
+                  const SizedBox(width: 10),
                   Semantics(
                     button: true,
                     label: on
