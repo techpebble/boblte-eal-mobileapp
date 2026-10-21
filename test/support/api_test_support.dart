@@ -69,3 +69,65 @@ Map<String, dynamic> itemResponse({bool populated = true, bool? isActive}) => {
   'bottlesPerCase': 12,
   if (isActive != null) 'isActive': isActive,
 };
+
+/// Answers by path, for a screen that loads more than one list.
+///
+/// Matches on the first key whose text appears in the request path, so
+/// "companies" and "packs" can be served to the same screen.
+class FakeApiRouter implements HttpClientAdapter {
+  FakeApiRouter(this.routes, {this.fallback = const {'count': 0, 'data': []}});
+
+  final Map<String, Object> routes;
+  final Object fallback;
+  final List<RequestOptions> requests = [];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(options);
+
+    final path = options.path;
+    final match = routes.entries
+        .where((e) => path.contains(e.key))
+        .map((e) => e.value)
+        .firstOrNull;
+
+    return ResponseBody.fromString(
+      jsonEncode(match ?? fallback),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+Map<String, dynamic> companyResponse({
+  String id = '64a000000000000000000002',
+  String name = 'Blue Ocean Beverages Pvt. Ltd.',
+}) => {
+  '_id': id,
+  'code': 'BOB',
+  'name': name,
+  'address': 'Industrial Estate',
+};
+
+Map<String, dynamic> packResponse({
+  String id = '64a000000000000000000003',
+  String name = '90ml',
+  int bottlesPerCase = 96,
+  int pack = 90,
+}) => {
+  '_id': id,
+  'name': name,
+  'bottlesPerCase': bottlesPerCase,
+  // PackSize.pack is the millilitre size, and the model types it as an int.
+  'pack': pack,
+};
+

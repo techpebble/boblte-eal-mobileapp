@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/utils/formatting.dart';
 
 /// The dispatch lifecycle, in order. Every pill carries its position in the
 /// chain ("Final · 2/5") so the sequence reads without learning the palette —
@@ -270,6 +271,102 @@ class SectionHeading extends StatelessWidget {
           Expanded(child: Text(title.toUpperCase(), style: AppText.section)),
           if (trailing != null) trailing!,
         ],
+      ),
+    );
+  }
+}
+
+/// `local` / `export`, labelled as the backend names them.
+///
+/// Shared by the issuance screens: the market belongs to one set of
+/// stickers, so it is chosen wherever that set is described.
+class MarketToggle extends StatelessWidget {
+  const MarketToggle({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.accent,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final option in const ['local', 'export']) ...[
+          if (option != 'local') const SizedBox(width: 8),
+          Expanded(
+            child: _MarketOption(
+              label: titleCase(option),
+              selected: value == option,
+              accent: accent,
+              onTap: () => onChanged(option),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MarketOption extends StatelessWidget {
+  const _MarketOption({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.1) : AppColors.surface,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected ? accent : AppColors.lineField,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 17,
+                color: selected ? accent : AppColors.ink400,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? accent : AppColors.ink700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
