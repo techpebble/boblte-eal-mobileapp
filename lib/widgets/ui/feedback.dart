@@ -57,14 +57,15 @@ enum NoticeLevel { caution, success, info, error }
 class NoticeBanner extends StatelessWidget {
   const NoticeBanner({
     super.key,
-    required this.title,
+    this.title,
     this.message,
     this.level = NoticeLevel.caution,
     this.trailing,
     this.onTap,
   });
 
-  final String title;
+  /// Omitted where the note is a single sentence that needs no heading.
+  final String? title;
   final String? message;
   final NoticeLevel level;
   final Widget? trailing;
@@ -122,16 +123,17 @@ class NoticeBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: s.fg,
+                if (title != null)
+                  Text(
+                    title!,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: s.fg,
+                    ),
                   ),
-                ),
                 if (message != null) ...[
-                  const SizedBox(height: 3),
+                  if (title != null) const SizedBox(height: 3),
                   Text(message!, style: AppText.small),
                 ],
               ],

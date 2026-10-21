@@ -138,9 +138,7 @@ class _ScannerCameraState extends State<ScannerCamera> {
                   stepLabel: widget.stepLabel,
                   stepIndex: widget.stepIndex,
                   stepCount: widget.stepCount,
-                  torchOn: _torchOn,
                   onClose: () => Navigator.pop(context),
-                  onToggleTorch: _toggleTorch,
                 ),
 
                 if (hasCaptured)
@@ -161,8 +159,9 @@ class _ScannerCameraState extends State<ScannerCamera> {
                 const Spacer(),
 
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 26),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _handled ? 'Read' : 'Hold the QR code inside the frame',
@@ -185,25 +184,29 @@ class _ScannerCameraState extends State<ScannerCamera> {
                           color: AppColors.scannerMuted,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
+                      // The torch is the control reached for most often in a
+                      // dim store, so it sits in the thumb zone rather than
+                      // the far top corner.
+                      _TorchPill(on: _torchOn, onPressed: _toggleTorch),
+                      const SizedBox(height: 10),
+                      // Quiet by design: typing a serial is the fallback, and
+                      // a solid button here competed with the scanner itself.
                       SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
+                        height: AppSpace.touch,
+                        child: TextButton(
                           onPressed: () => Navigator.pop(
                             context,
                             const ScannerAskedToType(),
                           ),
-                          icon: const Icon(Icons.keyboard_outlined, size: 18),
-                          label: const Text('Label damaged — type it instead'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.scannerInk,
-                            foregroundColor: AppColors.scannerBase,
-                            minimumSize: const Size.fromHeight(50),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.scannerMuted,
                             textStyle: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          child: const Text('Label damaged? Type it by hand'),
                         ),
                       ),
                     ],
@@ -221,9 +224,7 @@ class _ScannerCameraState extends State<ScannerCamera> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.stepLabel,
-    required this.torchOn,
     required this.onClose,
-    required this.onToggleTorch,
     this.stepIndex,
     this.stepCount,
   });
@@ -231,9 +232,7 @@ class _TopBar extends StatelessWidget {
   final String stepLabel;
   final int? stepIndex;
   final int? stepCount;
-  final bool torchOn;
   final VoidCallback onClose;
-  final VoidCallback onToggleTorch;
 
   @override
   Widget build(BuildContext context) {
@@ -272,15 +271,47 @@ class _TopBar extends StatelessWidget {
               ],
             ),
           ),
-          _RoundButton(
-            icon: torchOn
-                ? Icons.flashlight_on_rounded
-                : Icons.flashlight_off_rounded,
-            tooltip: torchOn ? 'Turn torch off' : 'Turn torch on',
-            onPressed: onToggleTorch,
-            filled: torchOn,
-          ),
+          // Balances the close button so the step stays centred.
+          const SizedBox(width: 48),
         ],
+      ),
+    );
+  }
+}
+
+/// A labelled pill rather than a bare icon: in a dark viewfinder an icon
+/// alone gives no clue whether the torch is already on.
+class _TorchPill extends StatelessWidget {
+  const _TorchPill({required this.on, required this.onPressed});
+
+  final bool on;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: on ? 'Torch on' : 'Torch off',
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(
+          on ? Icons.flashlight_on_rounded : Icons.flashlight_off_rounded,
+          size: 19,
+        ),
+        label: Text(on ? 'Torch on' : 'Torch off'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: on ? AppColors.scannerInk : AppColors.scannerVeil,
+          foregroundColor: on ? AppColors.scannerBase : AppColors.scannerInk,
+          elevation: 0,
+          minimumSize: const Size(0, 50),
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -291,13 +322,11 @@ class _RoundButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.filled = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -309,11 +338,8 @@ class _RoundButton extends StatelessWidget {
         tooltip: tooltip,
         icon: Icon(icon, size: 22),
         style: IconButton.styleFrom(
-          backgroundColor: filled
-              ? AppColors.scannerInk
-              : Colors.white.withValues(alpha: 0.14),
-          foregroundColor:
-              filled ? AppColors.scannerBase : AppColors.scannerInk,
+          backgroundColor: AppColors.scannerVeil,
+          foregroundColor: AppColors.scannerInk,
         ),
       ),
     );
@@ -537,13 +563,14 @@ class _Corner extends StatelessWidget {
   }
 }
 
-/// A wide, shallow window: EAL labels are landscape, so a square box wastes
-/// the width the operator is trying to fill.
+/// A square window. An excise sticker is roughly square, and a square frame
+/// is easier to line up one-handed than a letterbox.
 Rect _reticleRect(BoxConstraints constraints) {
   final width = constraints.maxWidth - 68;
-  final height = width * 0.6;
+  final height = width;
   final left = (constraints.maxWidth - width) / 2;
-  final top = (constraints.maxHeight - height) / 2 - 24;
+  // Sits above centre so the whole bottom third stays free for controls.
+  final top = (constraints.maxHeight - height) / 2 - 30;
 
   return Rect.fromLTWH(left, top < 0 ? 0 : top, width, height);
 }

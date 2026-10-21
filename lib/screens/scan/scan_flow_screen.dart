@@ -259,12 +259,19 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     }
   }
 
+  /// The prefix is the first step, so it owns the screen until it is set.
+  bool get _needsPrefix => !_draft.hasPrefix;
+
+  /// Which end the next scan is for. The first end until it is captured.
+  bool get _onFirstEnd => !_draft.hasFrom;
+
   @override
   Widget build(BuildContext context) {
     final accent = _target.module.accent;
+    final complete = _draft.isComplete;
     // A part case is refused outright: the quantity would be wrong and
     // the remainder silently dropped.
-    final ready = _draft.isComplete &&
+    final ready = complete &&
         !_draft.isBackwards &&
         _draft.hasWholeCases(_target.bottlesPerCase);
 
@@ -286,45 +293,32 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(
-              child: Text(
-                '$_stepsDone of $_stepCount',
-                style: AppText.mono(
-                  size: 12.5,
-                  weight: FontWeight.w600,
-                  color: AppColors.ink500,
-                ),
-              ),
-            ),
-          ),
-        ],
+        // One progress indicator, not a rail and a counter saying the same
+        // thing. The step is named in the body where the work is.
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(5),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.gutter,
-              0,
-              AppSpace.gutter,
-              0,
-            ),
-            child: Row(
-              children: [
-                for (var i = 0; i < _stepCount; i++) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(
-                    child: Container(
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: i < _stepsDone ? AppColors.green : AppColors.line,
-                        borderRadius: AppRadius.brPill,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+            child: Semantics(
+              label: 'Step ${_stepsDone + (complete ? 0 : 1)} '
+                  'of $_stepCount',
+              child: Row(
+                children: [
+                  for (var i = 0; i < _stepCount; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color:
+                              i < _stepsDone ? AppColors.green : AppColors.line,
+                          borderRadius: AppRadius.brPill,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -351,53 +345,68 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             const SizedBox(height: AppSpace.md),
           ],
 
-          _PrefixStep(
-            draft: _draft,
-            editing: _editingPrefix,
-            field: _prefixField,
-            accent: accent,
-            onChanged: _setPrefix,
-            onEdit: () => setState(() => _editingPrefix = true),
-          ),
-
-          const SizedBox(height: AppSpace.md),
-          _SerialStep(
-            index: 2,
-            title: _draft.rangeFromSingleQr
-                ? 'Range scanned'
-                : 'First label of the run',
-            hint: 'The lowest serial — the first case off the line.',
-            serial: _draft.hasFrom ? _draft.from : null,
-            prefix: _draft.prefix,
-            typedByHand: _draft.fromTypedByHand,
-            capturedAt: _draft.capturedFromAt,
-            accent: accent,
-            active: _draft.hasPrefix && !_draft.hasFrom,
-            enabled: _draft.hasPrefix,
-            onScan: () => _scan(isFrom: true),
-            onType: () => _typeSerial(isFrom: true),
-          ),
-
-          if (!_draft.rangeFromSingleQr) ...[
-            const SizedBox(height: AppSpace.md),
-            _SerialStep(
-              index: 3,
-              title: 'Last label of the run',
-              hint: 'The highest serial — the last case off the line.',
-              serial: _draft.hasTo ? _draft.to : null,
-              prefix: _draft.prefix,
-              typedByHand: _draft.toTypedByHand,
-              capturedAt: _draft.capturedToAt,
+          if (_editingPrefix || _needsPrefix)
+            _PrefixEditor(
+              field: _prefixField,
               accent: accent,
-              active: _draft.hasFrom && !_draft.hasTo,
-              enabled: _draft.hasPrefix,
-              onScan: () => _scan(isFrom: false),
-              onType: () => _typeSerial(isFrom: false),
+              onChanged: _setPrefix,
+            )
+          else ...[
+            // What is captured, read as one building range rather than a
+            // column of finished step cards.
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('RANGE SO FAR', style: AppText.section),
+                ),
+                _PrefixChipButton(
+                  prefix: _draft.prefix,
+                  onPressed: () => setState(() => _editingPrefix = true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            _RangeCard(
+              draft: _draft,
+              accent: accent,
+              onEditFrom: () => _scan(isFrom: true),
+              onEditTo: _draft.rangeFromSingleQr
+                  ? null
+                  : () => _scan(isFrom: false),
             ),
           ],
 
+          if (!complete && _target.hasTargetQuantity) ...[
+            const SizedBox(height: 10),
+            Text(_targetLine(), style: AppText.small),
+          ],
+
+          // The one thing to do now, or what the finished range comes to.
+          if (!complete && !_needsPrefix && !_editingPrefix) ...[
+            const SizedBox(height: 24),
+            _StepBlock(
+              step: 'STEP ${_stepsDone + 1} OF $_stepCount',
+              title: _onFirstEnd
+                  ? 'Scan the first label'
+                  : 'Scan the last label',
+              hint: _onFirstEnd
+                  ? 'The lowest serial of the run — the first case off the '
+                      'line. Hold the code inside the frame and it reads on '
+                      'its own.'
+                  : 'The highest serial of the run — the last case off the '
+                      'line. Hold the code inside the frame and it reads on '
+                      'its own.',
+              accent: accent,
+            ),
+          ],
+
+          if (complete) ...[
+            const SizedBox(height: AppSpace.lg),
+            _RunningTotal(target: _target, draft: _draft),
+          ],
+
           if (_draft.rangeFromSingleQr) ...[
-            const SizedBox(height: AppSpace.md),
+            const SizedBox(height: AppSpace.lg),
             NoticeBanner(
               level: NoticeLevel.info,
               title: 'One code covered the whole range',
@@ -405,10 +414,15 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                   'scan. Scan the first label again to enter the ends '
                   'separately.',
             ),
+          ] else if (_target.allowRangeQr && !complete && !_needsPrefix) ...[
+            const SizedBox(height: 20),
+            NoticeBanner(
+              level: NoticeLevel.info,
+              message: 'Some issuance codes carry both ends at once. If this '
+                  'one does, the range fills in and you are done after this '
+                  'scan.',
+            ),
           ],
-
-          const SizedBox(height: AppSpace.lg),
-          _RunningTotal(target: _target, draft: _draft),
         ],
       ),
       bottomNavigationBar: Container(
@@ -424,28 +438,86 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
               AppSpace.gutter,
               12,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: ready ? _continue : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: accent),
-                  child: const Text('Continue to summary'),
-                ),
-                if (!ready) ...[
-                  const SizedBox(height: 9),
-                  Text(
-                    _blockingReason(),
-                    textAlign: TextAlign.center,
-                    style: AppText.small,
+            // One action at a time: the step's action while scanning, then
+            // Continue once both ends are in.
+            child: complete
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton(
+                        onPressed: ready ? _continue : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          minimumSize: const Size.fromHeight(56),
+                        ),
+                        child: const Text('Continue to summary'),
+                      ),
+                      const SizedBox(height: 9),
+                      Text(
+                        _blockingReason(),
+                        textAlign: TextAlign.center,
+                        style: AppText.small,
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _needsPrefix
+                            ? null
+                            : () => _scan(isFrom: _onFirstEnd),
+                        icon: const Icon(
+                          Icons.qr_code_scanner_rounded,
+                          size: 21,
+                        ),
+                        label: const Text('Open scanner'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          minimumSize: const Size.fromHeight(56),
+                          textStyle: const TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      // The fallback stays reachable but stops competing
+                      // with the scanner.
+                      SizedBox(
+                        height: AppSpace.touch,
+                        child: TextButton(
+                          onPressed: _needsPrefix
+                              ? null
+                              : () => _typeSerial(isFrom: _onFirstEnd),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.ink500,
+                            textStyle: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: const Text('Label damaged? Type it by hand'),
+                        ),
+                      ),
+                      if (_needsPrefix)
+                        Text(
+                          'Enter the three-character prefix first',
+                          textAlign: TextAlign.center,
+                          style: AppText.small,
+                        ),
+                    ],
                   ),
-                ],
-              ],
-            ),
           ),
         ),
       ),
     );
+  }
+
+  String _targetLine() {
+    final needs = 'This line needs ${formatCases(_target.requiredCases!)}';
+    final linked = _target.alreadyLinkedCases ?? 0;
+    if (linked == 0) return '$needs.';
+    return '$needs. ${formatQty(linked)} already linked.';
   }
 
   String _blockingReason() {
@@ -464,65 +536,20 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   }
 }
 
-class _PrefixStep extends StatelessWidget {
-  const _PrefixStep({
-    required this.draft,
-    required this.editing,
+/// The prefix, set once and then kept out of the way.
+class _PrefixEditor extends StatelessWidget {
+  const _PrefixEditor({
     required this.field,
     required this.accent,
     required this.onChanged,
-    required this.onEdit,
   });
 
-  final ScanDraft draft;
-  final bool editing;
   final TextEditingController field;
   final Color accent;
   final ValueChanged<String> onChanged;
-  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    if (!editing && draft.hasPrefix) {
-      return AppCard(
-        child: Row(
-          children: [
-            const _StepTick(),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Serial prefix', style: AppText.small),
-                  const SizedBox(height: 1),
-                  Text(
-                    draft.prefix,
-                    style: AppText.mono(
-                      size: 16,
-                      weight: FontWeight.w600,
-                      letterSpacing: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: onEdit,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 38),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Change'),
-            ),
-          ],
-        ),
-      );
-    }
-
     return AppCard(
       borderColor: accent,
       borderWidth: 2,
@@ -530,24 +557,11 @@ class _PrefixStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _StepNumber(number: 1, accent: accent),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Serial prefix', style: AppText.cardTitle),
-                    SizedBox(height: 2),
-                    Text(
-                      'The three characters printed before the digits',
-                      style: AppText.small,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const Text('Serial prefix', style: AppText.cardTitle),
+          const SizedBox(height: 2),
+          const Text(
+            'The three characters printed before the digits',
+            style: AppText.small,
           ),
           const SizedBox(height: AppSpace.md),
           TextField(
@@ -562,7 +576,11 @@ class _PrefixStep extends StatelessWidget {
                 (_, next) => next.copyWith(text: next.text.toUpperCase()),
               ),
             ],
-            style: AppText.mono(size: 26, weight: FontWeight.w600, letterSpacing: 7),
+            style: AppText.mono(
+              size: 26,
+              weight: FontWeight.w600,
+              letterSpacing: 7,
+            ),
             onChanged: onChanged,
             decoration: const InputDecoration(
               hintText: 'ABC',
@@ -575,134 +593,85 @@ class _PrefixStep extends StatelessWidget {
   }
 }
 
-class _SerialStep extends StatelessWidget {
-  const _SerialStep({
-    required this.index,
-    required this.title,
-    required this.hint,
-    required this.serial,
-    required this.prefix,
-    required this.typedByHand,
-    required this.capturedAt,
-    required this.accent,
-    required this.active,
-    required this.enabled,
-    required this.onScan,
-    required this.onType,
-  });
+/// The set prefix, as a chip that can be tapped to change it.
+class _PrefixChipButton extends StatelessWidget {
+  const _PrefixChipButton({required this.prefix, required this.onPressed});
 
-  final int index;
-  final String title;
-  final String hint;
-  final int? serial;
   final String prefix;
-  final bool typedByHand;
-  final DateTime? capturedAt;
-  final Color accent;
-  final bool active;
-  final bool enabled;
-  final VoidCallback onScan;
-  final VoidCallback onType;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    // Captured: show the value, keep it changeable.
-    if (serial != null) {
-      return AppCard(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: _StepTick(),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: AppText.small),
-                  const SizedBox(height: 2),
-                  SerialValue(serial: serial!, size: 17),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Text(
-                        typedByHand ? 'Typed by hand' : 'Scanned',
-                        style: AppText.micro,
-                      ),
-                      if (capturedAt != null)
-                        Text(
-                          ' · ${formatClock(capturedAt!)}',
-                          style: AppText.micro,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: onScan,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 38),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Rescan'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // The live step carries the action.
-    return AppCard(
-      borderColor: active ? accent : AppColors.line,
-      borderWidth: active ? 2 : 1,
-      padding: const EdgeInsets.all(AppSpace.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Semantics(
+      button: true,
+      label: 'Serial prefix $prefix. Change it.',
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: AppRadius.brPill,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
+          child: Row(
             children: [
-              _StepNumber(
-                number: index,
-                accent: active ? accent : AppColors.ink400,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: AppText.cardTitle),
-                    const SizedBox(height: 2),
-                    Text(hint, style: AppText.small),
-                  ],
-                ),
+              SerialPrefixChip(prefix),
+              const SizedBox(width: 7),
+              const Icon(
+                Icons.edit_outlined,
+                size: 15,
+                color: AppColors.ink500,
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.md),
-          ElevatedButton.icon(
-            onPressed: enabled ? onScan : null,
-            icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-            label: const Text('Open scanner'),
-            style: ElevatedButton.styleFrom(backgroundColor: accent),
+        ),
+      ),
+    );
+  }
+}
+
+/// The two ends in one card, so the range reads as a range.
+class _RangeCard extends StatelessWidget {
+  const _RangeCard({
+    required this.draft,
+    required this.accent,
+    required this.onEditFrom,
+    required this.onEditTo,
+  });
+
+  final ScanDraft draft;
+  final Color accent;
+  final VoidCallback onEditFrom;
+  final VoidCallback? onEditTo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.brTile,
+        border: Border.all(color: AppColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          _EndRow(
+            label: 'From',
+            serial: draft.hasFrom ? draft.from : null,
+            typedByHand: draft.fromTypedByHand,
+            capturedAt: draft.capturedFromAt,
+            waiting: draft.hasPrefix && !draft.hasFrom,
+            accent: accent,
+            onEdit: onEditFrom,
+            editTooltip: 'Rescan the first label',
           ),
-          const SizedBox(height: 9),
-          OutlinedButton(
-            onPressed: enabled ? onType : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-              textStyle: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            child: const Text('Type the serial instead'),
+          const Divider(height: 1, thickness: 1, color: AppColors.lineSoft),
+          _EndRow(
+            label: 'To',
+            serial: draft.hasTo ? draft.to : null,
+            typedByHand: draft.toTypedByHand,
+            capturedAt: draft.capturedToAt,
+            waiting: draft.hasFrom && !draft.hasTo,
+            accent: accent,
+            onEdit: onEditTo,
+            editTooltip: 'Rescan the last label',
           ),
         ],
       ),
@@ -710,45 +679,134 @@ class _SerialStep extends StatelessWidget {
   }
 }
 
-class _StepNumber extends StatelessWidget {
-  const _StepNumber({required this.number, required this.accent});
+class _EndRow extends StatelessWidget {
+  const _EndRow({
+    required this.label,
+    required this.serial,
+    required this.typedByHand,
+    required this.capturedAt,
+    required this.waiting,
+    required this.accent,
+    required this.onEdit,
+    required this.editTooltip,
+  });
 
-  final int number;
+  final String label;
+  final int? serial;
+  final bool typedByHand;
+  final DateTime? capturedAt;
+
+  /// This is the end the next scan will fill, so it is drawn as a gap being
+  /// waited on rather than a blank.
+  final bool waiting;
+
   final Color accent;
+  final VoidCallback? onEdit;
+  final String editTooltip;
 
   @override
   Widget build(BuildContext context) {
+    final captured = serial != null;
+
     return Container(
-      width: 26,
-      height: 26,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: accent, borderRadius: AppRadius.brPill),
-      child: Text(
-        '$number',
-        style: const TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
+      color: waiting ? AppColors.canvas : null,
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 38,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: waiting ? accent : AppColors.ink500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (captured)
+                  SerialValue(serial: serial!, size: 18)
+                else
+                  Text(
+                    '·' * kSerialDigits,
+                    style: AppText.mono(
+                      size: 18,
+                      weight: FontWeight.w600,
+                      color: AppColors.ink400,
+                      letterSpacing: 4.7,
+                    ),
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  captured
+                      ? [
+                          typedByHand ? 'Typed by hand' : 'Scanned',
+                          if (capturedAt != null) formatClock(capturedAt!),
+                        ].join(' · ')
+                      : waiting
+                          ? 'Waiting for this one'
+                          : 'Not captured yet',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: waiting ? accent : AppColors.ink500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (captured && onEdit != null)
+            IconButton(
+              onPressed: onEdit,
+              tooltip: editTooltip,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              color: AppColors.ink500,
+            )
+          else
+            const SizedBox(width: 8),
+        ],
       ),
     );
   }
 }
 
-class _StepTick extends StatelessWidget {
-  const _StepTick();
+/// The step being worked on, stated once and plainly.
+class _StepBlock extends StatelessWidget {
+  const _StepBlock({
+    required this.step,
+    required this.title,
+    required this.hint,
+    required this.accent,
+  });
+
+  final String step;
+  final String title;
+  final String hint;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 26,
-      height: 26,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        color: AppColors.greenTint,
-        borderRadius: AppRadius.brPill,
-      ),
-      child: const Icon(Icons.check_rounded, size: 15, color: AppColors.green),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(step, style: AppText.section.copyWith(color: accent)),
+        const SizedBox(height: 7),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+            color: AppColors.ink900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(hint, style: AppText.bodyMuted),
+      ],
     );
   }
 }

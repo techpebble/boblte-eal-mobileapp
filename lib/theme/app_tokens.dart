@@ -68,6 +68,8 @@ class AppColors {
   static const scannerInk = Color(0xFFF5F7FA);
   static const scannerMuted = Color(0xFF9FB2CE);
   static const scannerAccent = Color(0xFF7FE3B4);
+  // A translucent white for controls resting on the viewfinder.
+  static const scannerVeil = Color(0x24FFFFFF);
 }
 
 class AppRadius {

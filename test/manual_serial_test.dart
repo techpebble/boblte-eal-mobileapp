@@ -29,7 +29,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), digits);
+    // Digits come from the keypad built into the screen, not the system
+    // keyboard, so each one is a tap.
+    for (final digit in digits.split('')) {
+      await tester.tap(find.text(digit));
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
   }
 
@@ -112,7 +117,7 @@ void main() {
     );
 
     expect(submitEnabled(tester), isFalse);
-    expect(find.text('The range must make whole cases'), findsOneWidget);
+    expect(find.text('Not a whole number of cases'), findsOneWidget);
   });
 
   testWidgets('the other end is checked the same way', (tester) async {
