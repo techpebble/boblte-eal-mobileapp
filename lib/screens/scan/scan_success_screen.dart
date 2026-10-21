@@ -41,7 +41,7 @@ class ScanSuccessScreen extends StatelessWidget {
       // Backing out of a confirmation means "finished", not "undo".
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.pop(context, ScanReviewResult.done);
+        if (!didPop) Navigator.pop(context, ScanOutcome.done);
       },
       child: Scaffold(
         backgroundColor: AppColors.canvas,
@@ -49,7 +49,7 @@ class ScanSuccessScreen extends StatelessWidget {
           automaticallyImplyLeading: false,
           actions: [
             IconButton(
-              onPressed: () => Navigator.pop(context, ScanReviewResult.done),
+              onPressed: () => Navigator.pop(context, ScanOutcome.done),
               icon: const Icon(Icons.close_rounded),
               tooltip: 'Close',
             ),
@@ -199,7 +199,7 @@ class ScanSuccessScreen extends StatelessWidget {
             const SizedBox(height: AppSpace.xxl),
             OutlinedButton.icon(
               onPressed: () =>
-                  Navigator.pop(context, ScanReviewResult.another),
+                  Navigator.pop(context, ScanOutcome.another),
               icon: const Icon(Icons.qr_code_scanner_rounded, size: 19),
               label: const Text('Record another range'),
               style: OutlinedButton.styleFrom(
@@ -208,7 +208,7 @@ class ScanSuccessScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context, ScanReviewResult.done),
+              onPressed: () => Navigator.pop(context, ScanOutcome.done),
               style: ElevatedButton.styleFrom(
                 backgroundColor: target.module.accent,
               ),

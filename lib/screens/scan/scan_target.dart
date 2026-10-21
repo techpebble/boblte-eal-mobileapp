@@ -5,10 +5,7 @@ import 'package:eal_scanner/theme/app_tokens.dart';
 enum ScanUnit { labels, cases }
 
 /// How the operator left the summary.
-enum ScanReviewResult {
-  /// Backed out without sending.
-  cancelled,
-
+enum ScanOutcome {
   /// Sent, and finished.
   done,
 

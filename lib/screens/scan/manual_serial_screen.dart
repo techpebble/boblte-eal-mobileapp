@@ -428,15 +428,15 @@ class _Feedback extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          // Wrapped, not a plain row: a six-figure label count and its case
+          // count together are wider than a phone at this size.
+          Wrap(
+            spacing: 18,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Figure(value: formatQty(labels), label: 'labels'),
-              if (cases != null) ...[
-                const SizedBox(width: 18),
-                _Figure(value: formatQty(cases), label: 'cases'),
-              ],
+              if (cases != null) _Figure(value: formatQty(cases), label: 'cases'),
             ],
           ),
         ],

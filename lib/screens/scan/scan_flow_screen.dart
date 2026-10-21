@@ -3,14 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'package:eal_scanner/screens/scan/manual_serial_screen.dart';
-import 'package:eal_scanner/screens/scan/scan_review_screen.dart';
+import 'package:eal_scanner/screens/scan/scan_success_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_target.dart';
 import 'package:eal_scanner/screens/scan/scanner_camera.dart';
 import 'package:eal_scanner/services/settingsService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:eal_scanner/widgets/ui/serial_text.dart';
+
+/// The footer's two buttons share this, so the style never changes under
+/// the button when the footer swaps one for the other.
+const _primaryActionText = TextStyle(
+  fontSize: 16.5,
+  fontWeight: FontWeight.w600,
+);
 
 /// The one scan wizard, serving all three modules.
 ///
@@ -37,6 +45,11 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
 
   late bool _editingPrefix = !_draft.hasPrefix;
   String _error = '';
+
+  /// A rejection from the server, kept apart from a misread code: the two
+  /// need different wording and the server's own message is worth reading.
+  String _serverError = '';
+  bool _sending = false;
 
   ScanTarget get _target => widget.target;
 
@@ -234,28 +247,73 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     });
   }
 
-  Future<void> _continue() async {
-    final result = await Navigator.push<ScanReviewResult>(
+  int get _labels => _draft.labels;
+  int get _cases => _draft.casesFor(_target.bottlesPerCase);
+
+  /// Where a dispatch line stands once this range is added.
+  ({int after, int outstanding, bool completes, bool exceeds})? get _lineEffect {
+    if (!_target.hasTargetQuantity) return null;
+
+    final required = _target.requiredCases!;
+    final already = _target.alreadyLinkedCases ?? 0;
+    final after = already + _cases;
+
+    return (
+      after: after,
+      outstanding: required - after,
+      completes: after == required,
+      exceeds: after > required,
+    );
+  }
+
+  /// Sends the range. The screen shows everything that was on the separate
+  /// review step, so the button itself is the confirmation.
+  Future<void> _submit() async {
+    setState(() {
+      _sending = true;
+      _serverError = '';
+    });
+
+    final error = await _target.submit(_draft);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _sending = false;
+        _serverError = error;
+      });
+      return;
+    }
+
+    final outcome = await Navigator.push<ScanOutcome>(
       context,
       MaterialPageRoute(
-        builder: (_) => ScanReviewScreen(target: _target, draft: _draft),
+        builder: (_) => ScanSuccessScreen(
+          target: _target,
+          draft: _draft,
+          labels: _labels,
+          cases: _cases,
+          lineAfter: _lineEffect?.after,
+        ),
       ),
     );
 
-    if (!mounted || result == null) return;
+    if (!mounted) return;
 
-    switch (result) {
-      case ScanReviewResult.done:
+    // Backing out of a confirmation means finished, not undo.
+    switch (outcome ?? ScanOutcome.done) {
+      case ScanOutcome.done:
         Navigator.pop(context, true);
-      case ScanReviewResult.another:
+      case ScanOutcome.another:
         // Keep the prefix — the next run almost always shares it.
         setState(() {
           _draft = ScanDraft(prefix: _draft.prefix);
           _editingPrefix = false;
+          _sending = false;
           _error = '';
+          _serverError = '';
         });
-      case ScanReviewResult.cancelled:
-        break;
     }
   }
 
@@ -269,6 +327,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   Widget build(BuildContext context) {
     final accent = _target.module.accent;
     final complete = _draft.isComplete;
+    final leads = _target.unit == ScanUnit.cases;
+    final effect = complete ? _lineEffect : null;
     // A part case is refused outright: the quantity would be wrong and
     // the remainder silently dropped.
     final ready = complete &&
@@ -345,6 +405,15 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             const SizedBox(height: AppSpace.md),
           ],
 
+          if (_serverError.isNotEmpty) ...[
+            NoticeBanner(
+              level: NoticeLevel.error,
+              title: 'The server would not accept this',
+              message: _serverError,
+            ),
+            const SizedBox(height: AppSpace.md),
+          ],
+
           if (_editingPrefix || _needsPrefix)
             _PrefixEditor(
               field: _prefixField,
@@ -356,9 +425,22 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             // column of finished step cards.
             Row(
               children: [
-                const Expanded(
-                  child: Text('RANGE SO FAR', style: AppText.section),
+                Expanded(
+                  child: Text(
+                    complete ? 'RANGE TO RECORD' : 'RANGE SO FAR',
+                    style: AppText.section,
+                  ),
                 ),
+                if (complete && _draft.typedByHand) ...[
+                  const Pill(
+                    label: 'by hand',
+                    background: AppColors.cautionTint,
+                    foreground: AppColors.cautionDeep,
+                    fontSize: 11,
+                    dense: true,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _PrefixChipButton(
                   prefix: _draft.prefix,
                   onPressed: () => setState(() => _editingPrefix = true),
@@ -369,10 +451,24 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             _RangeCard(
               draft: _draft,
               accent: accent,
-              onEditFrom: () => _scan(isFrom: true),
-              onEditTo: _draft.rangeFromSingleQr
+              // No edits while it is being sent.
+              onEditFrom: _sending ? null : () => _scan(isFrom: true),
+              onEditTo: _sending || _draft.rangeFromSingleQr
                   ? null
                   : () => _scan(isFrom: false),
+              // Once both ends are in, the card also says what the range
+              // comes to — this was the whole of the old review screen.
+              summary: complete
+                  ? _SummaryFigures(
+                      labels: _labels,
+                      cases: _cases,
+                      leads: leads,
+                      bottlesPerCase: _target.bottlesPerCase,
+                      partialBy: _draft.isPartialCase(_target.bottlesPerCase)
+                          ? _draft.remainderFor(_target.bottlesPerCase)
+                          : null,
+                    )
+                  : null,
             ),
           ],
 
@@ -400,9 +496,14 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             ),
           ],
 
-          if (complete) ...[
-            const SizedBox(height: AppSpace.lg),
-            _RunningTotal(target: _target, draft: _draft),
+          if (effect != null) ...[
+            const SizedBox(height: AppSpace.md),
+            _LineEffectCard(
+              required_: _target.requiredCases!,
+              already: _target.alreadyLinkedCases ?? 0,
+              adding: _cases,
+              effect: effect,
+            ),
           ],
 
           if (_draft.rangeFromSingleQr) ...[
@@ -445,16 +546,34 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ElevatedButton(
-                        onPressed: ready ? _continue : null,
+                        onPressed: (ready && !_sending) ? _submit : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           minimumSize: const Size.fromHeight(56),
+                          textStyle: _primaryActionText,
                         ),
-                        child: const Text('Continue to summary'),
+                        child: _sending
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                leads
+                                    ? 'Record ${formatCases(_cases)}'
+                                    : 'Record ${formatLabels(_labels)}',
+                              ),
                       ),
                       const SizedBox(height: 9),
                       Text(
-                        _blockingReason(),
+                        ready
+                            ? 'Saved to the server straight away'
+                            : _blockingReason(),
                         textAlign: TextAlign.center,
                         style: AppText.small,
                       ),
@@ -475,10 +594,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           minimumSize: const Size.fromHeight(56),
-                          textStyle: const TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          textStyle: _primaryActionText,
                         ),
                       ),
                       // The fallback stays reachable but stops competing
@@ -532,7 +648,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
       return '$over label${over == 1 ? '' : 's'} over a whole case — '
           'one of the two ends is wrong';
     }
-    return 'Nothing is sent until you confirm the summary';
+    return 'Saved to the server straight away';
   }
 }
 
@@ -634,12 +750,17 @@ class _RangeCard extends StatelessWidget {
     required this.accent,
     required this.onEditFrom,
     required this.onEditTo,
+    this.summary,
   });
 
   final ScanDraft draft;
   final Color accent;
-  final VoidCallback onEditFrom;
+  final VoidCallback? onEditFrom;
   final VoidCallback? onEditTo;
+
+  /// What the finished range comes to, shown inside the same card so the
+  /// range and its figures read as one thing.
+  final Widget? summary;
 
   @override
   Widget build(BuildContext context) {
@@ -673,6 +794,13 @@ class _RangeCard extends StatelessWidget {
             onEdit: onEditTo,
             editTooltip: 'Rescan the last label',
           ),
+          if (summary != null) ...[
+            const Divider(height: 1, thickness: 1, color: AppColors.lineSoft),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
+              child: summary!,
+            ),
+          ],
         ],
       ),
     );
@@ -811,98 +939,150 @@ class _StepBlock extends StatelessWidget {
   }
 }
 
-/// What the range will mean, before it is committed.
-class _RunningTotal extends StatelessWidget {
-  const _RunningTotal({required this.target, required this.draft});
+/// What the finished range comes to, and anything that stops it being sent.
+class _SummaryFigures extends StatelessWidget {
+  const _SummaryFigures({
+    required this.labels,
+    required this.cases,
+    required this.leads,
+    required this.bottlesPerCase,
+    required this.partialBy,
+  });
 
-  final ScanTarget target;
-  final ScanDraft draft;
+  final int labels;
+  final int cases;
+
+  /// Dispatch and production count in cases; an issuance counts in labels.
+  final bool leads;
+
+  final int bottlesPerCase;
+
+  /// Labels over a whole case, where the range does not divide evenly.
+  final int? partialBy;
 
   @override
   Widget build(BuildContext context) {
-    final labels = draft.labels;
-    final cases = draft.casesFor(target.bottlesPerCase);
-    final leads = target.unit == ScanUnit.cases;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpace.lg),
-      decoration: const BoxDecoration(
-        color: AppColors.sunken,
-        borderRadius: AppRadius.brTile,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('RUNNING TOTAL', style: AppText.section),
-          const SizedBox(height: 7),
-          if (labels == 0)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text('—', style: AppText.figure(size: 24, color: AppColors.ink500)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'once both ends are captured',
-                    style: AppText.small,
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  formatQty(leads ? cases : labels),
-                  style: AppText.figure(size: 24),
-                ),
-                const SizedBox(width: 7),
-                Text(leads ? 'cases' : 'labels', style: AppText.small),
-                const Spacer(),
-                Text(
-                  leads
-                      ? '${formatQty(labels)} labels'
-                      : '${formatQty(cases)} cases',
-                  style: AppText.mono(size: 12.5, color: AppColors.ink500),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: FigureTile(
+                value: formatQty(leads ? cases : labels),
+                label: leads ? 'cases' : 'labels',
+                size: 22,
+              ),
             ),
-
-          if (draft.isPartialCase(target.bottlesPerCase) && labels > 0) ...[
-            const SizedBox(height: AppSpace.md),
-            NoticeBanner(
-              title: 'Not a whole number of cases',
-              message:
-                  '${draft.remainderFor(target.bottlesPerCase)} labels over '
-                  '${formatQty(cases)}. This range cannot be recorded — one '
-                  'of the two ends names the wrong label.',
-            ),
-          ],
-
-          if (target.hasTargetQuantity) ...[
-            const SizedBox(height: AppSpace.md),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'This line needs ${formatCases(target.requiredCases!)}',
-                    style: AppText.small,
-                  ),
-                  if ((target.alreadyLinkedCases ?? 0) > 0)
-                    TextSpan(
-                      text: '. ${formatQty(target.alreadyLinkedCases!)} '
-                          'already linked.',
-                      style: AppText.small,
-                    ),
-                ],
+            Expanded(
+              child: FigureTile(
+                value: formatQty(leads ? labels : cases),
+                label: leads ? 'labels' : 'cases · $bottlesPerCase per case',
+                size: 22,
+                color: AppColors.ink700,
               ),
             ),
           ],
+        ),
+        if (partialBy != null) ...[
+          const SizedBox(height: AppSpace.lg),
+          NoticeBanner(
+            title: 'Not a whole number of cases',
+            message: '$partialBy labels more than ${formatCases(cases)}. '
+                'This cannot be recorded — one of the two ends above names '
+                'the wrong label.',
+          ),
         ],
-      ),
+      ],
+    );
+  }
+}
+
+/// Where a dispatch line stands once this range is added.
+class _LineEffectCard extends StatelessWidget {
+  const _LineEffectCard({
+    required this.required_,
+    required this.already,
+    required this.adding,
+    required this.effect,
+  });
+
+  final int required_;
+  final int already;
+  final int adding;
+  final ({int after, int outstanding, bool completes, bool exceeds}) effect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (effect.exceeds) {
+      return NoticeBanner(
+        level: NoticeLevel.error,
+        title: 'That is more than the line ordered',
+        message: 'The line is for ${formatCases(required_)} and '
+            '${formatQty(already)} are linked. Adding ${formatQty(adding)} '
+            'would overshoot by ${formatQty(-effect.outstanding)}. The server '
+            'will refuse it.',
+      );
+    }
+
+    if (effect.completes) {
+      return AppCard(
+        radius: AppRadius.card,
+        background: AppColors.greenTint,
+        borderColor: AppColors.greenLine,
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.check_rounded,
+                  size: 20,
+                  color: AppColors.green,
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'This completes the line',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.greenDeep,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${formatQty(already)} cases are linked already. With '
+                        'these ${formatQty(adding)}, all '
+                        '${formatQty(required_)} are accounted for.',
+                        style: AppText.small,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
+            LinkedProgressBar(
+              linked: effect.after,
+              required_: required_,
+              height: 8,
+              accent: AppColors.green,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return NoticeBanner(
+      title: 'The line will still be short',
+      message: '${formatCases(effect.outstanding)} left after this one. '
+          'The dispatch cannot move to Loaded until every line is covered.',
     );
   }
 }
