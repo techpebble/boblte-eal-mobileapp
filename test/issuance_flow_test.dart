@@ -1,6 +1,6 @@
 import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/screens/issuance/EALStickerScreen.dart';
-import 'package:eal_scanner/screens/issuance/sticker_details_screen.dart';
+import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,7 +77,7 @@ void main() {
     // Tapping does nothing while no company is set.
     await tester.tap(find.text('Add details'));
     await tester.pumpAndSettle();
-    expect(find.byType(StickerDetailsScreen), findsNothing);
+    expect(find.byType(StickerDetailsSheet), findsNothing);
 
     await tester.tap(find.text('Company'));
     await tester.pumpAndSettle();
@@ -100,16 +100,25 @@ void main() {
     await tester.tap(find.text('Add details'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(StickerDetailsScreen), findsOneWidget);
+    expect(find.byType(StickerDetailsSheet), findsOneWidget);
+
+    // It is a sheet, so what has already been added stays in view behind it.
+    expect(find.text('STICKERS ADDED'), findsOneWidget);
+    expect(find.text('Add details'), findsOneWidget);
+
     expect(find.text('Pack size'), findsOneWidget);
     expect(find.text('Market'), findsOneWidget);
     expect(find.text('Local'), findsOneWidget);
     expect(find.text('Export'), findsOneWidget);
 
     // The company and date carry through, so there is no doubt what this
-    // set of stickers belongs to.
+    // set of stickers belongs to. Scoped to the sheet, because the issuance
+    // screen stays visible behind it and names the company too.
     expect(
-      find.textContaining('Blue Ocean Beverages Pvt. Ltd.'),
+      find.descendant(
+        of: find.byType(StickerDetailsSheet),
+        matching: find.textContaining('Blue Ocean Beverages Pvt. Ltd.'),
+      ),
       findsOneWidget,
     );
 

@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/models/company.dart';
-import 'package:eal_scanner/screens/issuance/sticker_details_screen.dart';
+import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -73,11 +73,10 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
     final company = _company;
     if (company == null) return;
 
-    await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StickerDetailsScreen(company: company, date: _date),
-      ),
+    await showStickerDetailsSheet(
+      context: context,
+      company: company,
+      date: _date,
     );
 
     if (mounted) setState(() {});
