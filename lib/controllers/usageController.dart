@@ -2,15 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/company.dart';
 import 'package:eal_scanner/models/items.dart';
 import 'package:eal_scanner/models/packSize.dart';
+import 'package:eal_scanner/models/grouping_order.dart';
 import 'package:eal_scanner/models/usage.dart';
+import 'package:eal_scanner/models/usage_grouping.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/api_error.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class UsageController extends GetxController {
-  Rx<DateTime> selectedDate = DateTime.now().obs;
+  /// The span the list covers. The server takes a start and an end, so a
+  /// single day is simply a span where both are the same date.
+  Rx<DateTime> fromDate = _today().obs;
+  Rx<DateTime> toDate = _today().obs;
   RxBool isLoading = false.obs;
   RxList<UsageModel> ealUsages = <UsageModel>[].obs;
   RxList<Company> companies = <Company>[].obs;
@@ -18,58 +22,105 @@ class UsageController extends GetxController {
   RxList<Item> items = <Item>[].obs;
   RxList<UsageModel> currentProduction = <UsageModel>[].obs;
 
-  /// Free-text filter over item, pack and company.
-  RxString searchQuery = ''.obs;
-
-  /// How many days the list covers, counting back from [selectedDate].
-  RxInt rangeDays = 1.obs;
+  /// The three things the list is grouped by, which are the three worth
+  /// filtering on. Empty means any, and the options come from the entries
+  /// on screen rather than a separate fetch.
+  RxString filterCompany = ''.obs;
+  RxString filterMarket = ''.obs;
+  RxString filterItem = ''.obs;
 
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
   List<UsageModel> get filteredUsages {
-    final query = searchQuery.value.trim().toLowerCase();
-    if (query.isEmpty) return ealUsages;
+    final company = filterCompany.value;
+    final market = filterMarket.value;
+    final item = filterItem.value;
+    if (company.isEmpty && market.isEmpty && item.isEmpty) return ealUsages;
 
     return ealUsages.where((u) {
-      return u.itemName.toLowerCase().contains(query) ||
-          u.packName.toLowerCase().contains(query) ||
-          u.companyName.toLowerCase().contains(query) ||
-          u.prefix.toLowerCase().contains(query);
+      if (company.isNotEmpty && u.companyName != company) return false;
+      if (market.isNotEmpty && u.market.toLowerCase() != market) return false;
+      if (item.isNotEmpty && u.itemName != item) return false;
+      return true;
     }).toList();
   }
 
-  int get totalCases =>
-      ealUsages.fold<int>(0, (sum, u) => sum + u.usedQuantityInCases);
+  /// What the list draws: the filtered entries, by company and market then
+  /// item.
+  List<UsageGroup> get groupedUsages => groupUsages(filteredUsages);
 
-  int get totalLabels =>
-      ealUsages.fold<int>(0, (sum, u) => sum + u.usedQuantity);
+  int get activeFilterCount => [
+        filterCompany.value,
+        filterMarket.value,
+        filterItem.value,
+      ].where((f) => f.isNotEmpty).length;
 
-  void pickDate() async {
-    DateTime? picked = await showDatePicker(
-      context: Get.context!,
-      initialDate: selectedDate.value,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
+  bool get hasFilters => activeFilterCount > 0;
 
-    if (picked != null) {
-      selectedDate.value = picked;
-      rangeDays.value = 1;
-      fetchEALUsage();
-    }
+  /// Options come from the entries on screen, so a filter can never be set
+  /// to something there is nothing of.
+  List<String> get companyOptions =>
+      ealUsages.map((u) => u.companyName).toSet().toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+  List<String> get itemOptions =>
+      ealUsages.map((u) => u.itemName).toSet().toList()
+        ..sort((a, b) => compareBySize(a, b));
+
+  void clearFilters() {
+    filterCompany.value = '';
+    filterMarket.value = '';
+    filterItem.value = '';
   }
 
-  void setRange({required DateTime endDate, int days = 1}) {
-    selectedDate.value = endDate;
-    rangeDays.value = days;
+  /// The strip above the list shows what is on screen, so the totals follow
+  /// the filters.
+  int get totalCases =>
+      filteredUsages.fold<int>(0, (sum, u) => sum + u.usedQuantityInCases);
+
+  int get totalLabels =>
+      filteredUsages.fold<int>(0, (sum, u) => sum + u.usedQuantity);
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  bool isPreset(int days) {
+    final today = _today();
+    return toDate.value == today &&
+        fromDate.value == today.subtract(Duration(days: days - 1));
+  }
+
+  bool get isYesterday {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    return fromDate.value == yesterday && toDate.value == yesterday;
+  }
+
+  bool get isSingleDay => fromDate.value == toDate.value;
+
+  void setSpan(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    fromDate.value = a.isAfter(b) ? b : a;
+    toDate.value = a.isAfter(b) ? a : b;
     fetchEALUsage();
   }
 
+  void setLastDays(int days) {
+    final today = _today();
+    setSpan(today.subtract(Duration(days: days - 1)), today);
+  }
+
+  void setYesterday() {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    setSpan(yesterday, yesterday);
+  }
+
   void fetchEALUsage() async {
-    final end = selectedDate.value;
-    final start =
-        end.subtract(Duration(days: (rangeDays.value - 1).clamp(0, 365)));
+    final start = fromDate.value;
+    final end = toDate.value;
     final formatter = DateFormat('yyyy-MM-dd');
     final url =
         'eal_usage?startDate=${formatter.format(start)}&endDate=${formatter.format(end)}';

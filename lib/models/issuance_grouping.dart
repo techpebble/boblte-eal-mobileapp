@@ -1,3 +1,4 @@
+import 'package:eal_scanner/models/grouping_order.dart';
 import 'package:eal_scanner/models/issuance.dart';
 
 /// Issuance records gathered by company and market, then by pack size.
@@ -37,25 +38,6 @@ class IssuanceGroup {
   int get recordCount => packs.fold<int>(0, (sum, p) => sum + p.rows.length);
 }
 
-/// `local` before `export`, matching the server's own enum order.
-int _marketRank(String market) => market.toLowerCase() == 'local' ? 0 : 1;
-
-/// The millilitres leading a pack name, so 90ml sorts before 180ml. Names
-/// that do not start with a number fall back to their text.
-int? _packSize(String name) {
-  final match = RegExp(r'^\s*(\d+)').firstMatch(name);
-  return match == null ? null : int.tryParse(match.group(1)!);
-}
-
-int _comparePacks(String a, String b) {
-  final sa = _packSize(a);
-  final sb = _packSize(b);
-  if (sa != null && sb != null && sa != sb) return sa.compareTo(sb);
-  if (sa != null && sb == null) return -1;
-  if (sa == null && sb != null) return 1;
-  return a.toLowerCase().compareTo(b.toLowerCase());
-}
-
 /// Groups records for display. Companies read A to Z, markets local first,
 /// pack sizes smallest first, and the ranges within a pack size in serial
 /// order — so the same records always land in the same place.
@@ -89,7 +71,7 @@ List<IssuanceGroup> groupIssuances(List<IssuanceModel> rows) {
           ),
         )
         .toList()
-      ..sort((a, b) => _comparePacks(a.packName, b.packName));
+      ..sort((a, b) => compareBySize(a.packName, b.packName));
 
     groups.add(
       IssuanceGroup(companyName: parts[0], market: parts[1], packs: packs),
@@ -100,7 +82,7 @@ List<IssuanceGroup> groupIssuances(List<IssuanceModel> rows) {
     final byCompany =
         a.companyName.toLowerCase().compareTo(b.companyName.toLowerCase());
     if (byCompany != 0) return byCompany;
-    return _marketRank(a.market).compareTo(_marketRank(b.market));
+    return marketRank(a.market).compareTo(marketRank(b.market));
   });
 
   return groups;
