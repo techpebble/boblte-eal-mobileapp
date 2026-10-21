@@ -6,8 +6,7 @@ import 'package:eal_scanner/controllers/dashboardController.dart';
 import 'package:eal_scanner/models/dashboard.dart';
 import 'package:eal_scanner/screens/connectionScreen.dart';
 import 'package:eal_scanner/screens/dispatches/dispatchListScreen.dart';
-import 'package:eal_scanner/screens/issuance/EALStickerScreen.dart'
-    as issuance_entry;
+import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/screens/usages/EALStickerScreen.dart'
     as production_entry;
 import 'package:eal_scanner/theme/app_tokens.dart';
@@ -364,7 +363,7 @@ class _HomeBody extends StatelessWidget {
                 subtitle: 'Record a new issuance from the excise office',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  Get.to(() => const issuance_entry.EALStickerScreen());
+                  showStickerDetailsSheetForNext(context);
                 },
               ),
               const SizedBox(height: 10),

@@ -12,38 +12,60 @@ import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:eal_scanner/widgets/ui/picker_sheet.dart';
 
-/// Asks what one set of stickers is, within an issuance.
+/// Asks what one set of stickers is, on the way to scanning it.
 ///
-/// Returns true once a range has been recorded, so the issuance screen knows
-/// to refresh. A sheet rather than a screen: it is two fields on the way to
-/// the scanner, and the list of what has already been added stays visible
-/// behind it.
+/// One record is one set: a date, a company, a pack size and a market, then
+/// a serial range — which is how the server stores it. This sheet asks for
+/// those four and goes straight to the scanner, so there is no separate
+/// entry screen in between. Returns true once a range has been recorded, so
+/// the list knows to refresh; the list stays visible behind it.
 Future<bool?> showStickerDetailsSheet({
   required BuildContext context,
-  required Company company,
-  required DateTime date,
+  Company? company,
+  DateTime? date,
+  PackSize? pack,
+  String? market,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => StickerDetailsSheet(company: company, date: date),
+    builder: (_) => StickerDetailsSheet(
+      company: company,
+      date: date,
+      pack: pack,
+      market: market,
+    ),
   );
 }
 
-/// A purchase arrives as several sets of stickers, each with its own pack
-/// size, market, prefix and range. The date and company belong to the whole
-/// issuance and are settled before this sheet opens; these two fields are
-/// what makes one set different from the next.
+/// Opens the sheet for the next set, carrying the last entry's company,
+/// pack and market so a purchase of several sets is not typed out again.
+Future<bool?> showStickerDetailsSheetForNext(BuildContext context) {
+  final last = Get.find<Issuancecontroller>().lastEntry;
+  return showStickerDetailsSheet(
+    context: context,
+    company: last?.company,
+    pack: last?.pack,
+    market: last?.market,
+  );
+}
+
 class StickerDetailsSheet extends StatefulWidget {
   const StickerDetailsSheet({
     super.key,
-    required this.company,
-    required this.date,
+    this.company,
+    this.date,
+    this.pack,
+    this.market,
   });
 
-  final Company company;
-  final DateTime date;
+  /// Carried over from the last entry, where there was one. The date
+  /// defaults to today instead, since that is what it almost always is.
+  final Company? company;
+  final DateTime? date;
+  final PackSize? pack;
+  final String? market;
 
   @override
   State<StickerDetailsSheet> createState() => _StickerDetailsSheetState();
@@ -52,15 +74,47 @@ class StickerDetailsSheet extends StatefulWidget {
 class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
   final Issuancecontroller _controller = Get.find<Issuancecontroller>();
 
-  PackSize? _pack;
-  String _market = 'local';
+  late DateTime _date = widget.date ?? DateTime.now();
+  late Company? _company = widget.company;
+  late PackSize? _pack = widget.pack;
+  late String _market = widget.market ?? 'local';
+
+  /// True while nothing was carried in, so the note can say where the
+  /// values came from without claiming a last entry that never happened.
+  late final bool _carried = widget.company != null || widget.pack != null;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_controller.packs.isEmpty) _controller.fetchPackSizes();
+      if (_controller.companies.isEmpty) _controller.fetchCompanies();
     });
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2023),
+      lastDate: DateTime(2035),
+    );
+    if (picked != null && mounted) setState(() => _date = picked);
+  }
+
+  Future<void> _pickCompany() async {
+    final chosen = await showPickerSheet<Company>(
+      context: context,
+      title: 'Choose company',
+      searchHint: 'Company name',
+      accent: AppColors.indigo,
+      selected: _company,
+      emptyMessage: 'No companies have been set up yet.',
+      options: _controller.companies
+          .map((c) => PickerOption<Company>(value: c, label: c.name))
+          .toList(),
+    );
+    if (chosen != null && mounted) setState(() => _company = chosen);
   }
 
   Future<void> _pickPack() async {
@@ -84,11 +138,14 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
     if (chosen != null && mounted) setState(() => _pack = chosen);
   }
 
+  bool get _ready => _company != null && _pack != null;
+
   /// Straight on to the prefix and the two ends. The sheet stays open under
-  /// the scanner, so backing out of the scan keeps these choices.
+  /// the scanner, so backing out of the scan keeps these four values.
   Future<void> _continue() async {
+    final company = _company;
     final pack = _pack;
-    if (pack == null) return;
+    if (company == null || pack == null) return;
 
     final recorded = await Navigator.push<bool>(
       context,
@@ -98,14 +155,14 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
             module: AppModule.issuance,
             title: 'Record issuance',
             contextLine: '${pack.name} · ${titleCase(_market)} · '
-                '${widget.company.name}',
+                '${company.name}',
             bottlesPerCase: pack.bottlesPerCase,
             unit: ScanUnit.labels,
             // Some issuance labels carry the whole range in one code.
             allowRangeQr: true,
             submit: (draft) => _controller.addEALIssuance(
-              company: widget.company,
-              dateIssued: widget.date,
+              company: company,
+              dateIssued: _date,
               market: _market,
               pack: pack,
               prefix: draft.prefix,
@@ -122,9 +179,29 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
     Navigator.pop(context, true);
   }
 
+  /// Where the four values came from, said once, so none of them is a
+  /// surprise after a range is recorded against them.
+  String get _provenance {
+    if (_carried) {
+      return "Today's date, with the rest carried over from your last entry. "
+          'Change anything that differs.';
+    }
+    if (_pack == null) {
+      return 'The pack size is what turns a serial range into a quantity, so '
+          'it has to be set before scanning.';
+    }
+    return "Today's date, unless you change it. "
+        '${_pack!.bottlesPerCase} bottles to a case turns the range you scan '
+        'into a quantity.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final pack = _pack;
+    final today = DateTime.now();
+    final isToday = _date.year == today.year &&
+        _date.month == today.month &&
+        _date.day == today.day;
 
     return SafeArea(
       child: ConstrainedBox(
@@ -140,18 +217,15 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
               ),
               child: Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Sticker details', style: AppText.title),
-                        const SizedBox(height: 2),
+                        Text('Sticker details', style: AppText.title),
+                        SizedBox(height: 2),
                         Text(
-                          '${widget.company.name} · '
-                          '${formatDayMonth(widget.date)}',
+                          'What these stickers are, before scanning them',
                           style: AppText.small,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -172,8 +246,9 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
 
             Flexible(
               child: Obx(() {
-                // Read so the sheet rebuilds once the pack list arrives.
-                final packs = _controller.packs.length;
+                // Read so the sheet rebuilds when either list arrives.
+                final loading =
+                    _controller.packs.isEmpty || _controller.companies.isEmpty;
 
                 return ListView(
                   shrinkWrap: true,
@@ -188,6 +263,20 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                       padding: EdgeInsets.zero,
                       child: Column(
                         children: [
+                          PickerField(
+                            label: 'Date issued',
+                            value: isToday
+                                ? '${formatDayMonthYear(_date)} · today'
+                                : formatDayMonthYear(_date),
+                            icon: Icons.calendar_today_rounded,
+                            onTap: _pickDate,
+                          ),
+                          PickerField(
+                            label: 'Company',
+                            value: _company?.name,
+                            icon: Icons.apartment_rounded,
+                            onTap: _pickCompany,
+                          ),
                           PickerField(
                             label: 'Pack size',
                             value: pack == null
@@ -217,25 +306,30 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                       ),
                     ),
 
-                    const SizedBox(height: AppSpace.md),
-                    NoticeBanner(
-                      level: NoticeLevel.info,
-                      message: pack == null
-                          ? 'The pack size is what turns a serial range into '
-                              'a quantity, so it has to be set before '
-                              'scanning.'
-                          : '${pack.bottlesPerCase} bottles to a case is what '
-                              'turns a serial range into a quantity. Next you '
-                              'enter the prefix and scan the two ends.',
+                    const SizedBox(height: 9),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            _carried
+                                ? Icons.refresh_rounded
+                                : Icons.info_outline_rounded,
+                            size: 14,
+                            color: AppColors.ink500,
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(_provenance, style: AppText.micro),
+                          ),
+                        ],
+                      ),
                     ),
 
-                    if (packs == 0) ...[
+                    if (loading) ...[
                       const SizedBox(height: AppSpace.md),
-                      Text(
-                        'Loading pack sizes…',
-                        textAlign: TextAlign.center,
-                        style: AppText.small,
-                      ),
+                      const ThinLoadingBar(),
                     ],
                   ],
                 );
@@ -253,7 +347,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: pack == null ? null : _continue,
+                    onPressed: _ready ? _continue : null,
                     icon: const Icon(Icons.qr_code_scanner_rounded, size: 21),
                     label: const Text('Continue to scan'),
                     style: ElevatedButton.styleFrom(
@@ -265,10 +359,12 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                       ),
                     ),
                   ),
-                  if (pack == null) ...[
+                  if (!_ready) ...[
                     const SizedBox(height: 9),
                     Text(
-                      'Choose a pack size first',
+                      _company == null
+                          ? 'Choose a company first'
+                          : 'Choose a pack size first',
                       textAlign: TextAlign.center,
                       style: AppText.small,
                     ),

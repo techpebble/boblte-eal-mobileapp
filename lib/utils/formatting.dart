@@ -6,6 +6,7 @@ final DateFormat _dayMonth = DateFormat('d MMM');
 final DateFormat _dayMonthYear = DateFormat('d MMM yyyy');
 final DateFormat _fullDay = DateFormat('EEEE, d MMMM');
 final DateFormat _clock = DateFormat('HH:mm');
+final DateFormat _monthYear = DateFormat('MMMM yyyy');
 
 /// `48,000`. Trailing `.0` is dropped: case counts arrive as doubles from the
 /// API because they are derived by division.
@@ -37,6 +38,9 @@ String formatLabels(num value) {
 }
 
 String formatDayMonth(DateTime date) => _dayMonth.format(date);
+
+/// For a calendar heading, e.g. "October 2026".
+String formatMonthYear(DateTime date) => _monthYear.format(date);
 
 String formatDayMonthYear(DateTime date) => _dayMonthYear.format(date);
 

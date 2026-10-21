@@ -1,76 +1,132 @@
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/company.dart';
 import 'package:eal_scanner/models/issuance.dart';
+import 'package:eal_scanner/models/issuance_grouping.dart';
 import 'package:eal_scanner/models/items.dart';
 import 'package:eal_scanner/models/packSize.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/api_error.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class Issuancecontroller extends GetxController {
-  Rx<DateTime> selectedDate = DateTime.now().obs;
+  /// The span the list covers. The server takes a start and an end, so a
+  /// single day is simply a span where both are the same date.
+  Rx<DateTime> fromDate = _today().obs;
+  Rx<DateTime> toDate = _today().obs;
   RxBool isLoading = false.obs;
   RxList<IssuanceModel> ealIssuance = <IssuanceModel>[].obs;
   RxList<Item> items = <Item>[].obs;
   RxList<Company> companies = <Company>[].obs;
   RxList<PackSize> packs = <PackSize>[].obs;
-  RxList<IssuanceModel> currentEalIssuance = <IssuanceModel>[].obs;
+  /// What the last entry was recorded against, so the next sheet can start
+  /// from it instead of asking the same three questions again. A purchase is
+  /// usually several sets from one company on one day.
+  ({Company company, PackSize pack, String market})? lastEntry;
 
-  /// Free-text filter over pack, market and company.
-  RxString searchQuery = ''.obs;
-
-  /// How many days the list covers, counting back from [selectedDate]. 1 is
-  /// the single day the old build was fixed to.
-  RxInt rangeDays = 1.obs;
+  /// The three things the records are grouped by, so they are also the three
+  /// things worth filtering on. Empty means any. Held as names because that
+  /// is what a record carries, and the options come from the records on
+  /// screen rather than a separate fetch.
+  RxString filterCompany = ''.obs;
+  RxString filterMarket = ''.obs;
+  RxString filterPack = ''.obs;
 
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
   List<IssuanceModel> get filteredIssuance {
-    final query = searchQuery.value.trim().toLowerCase();
-    if (query.isEmpty) return ealIssuance;
+    final company = filterCompany.value;
+    final market = filterMarket.value;
+    final pack = filterPack.value;
+    if (company.isEmpty && market.isEmpty && pack.isEmpty) return ealIssuance;
 
     return ealIssuance.where((i) {
-      return i.packName.toLowerCase().contains(query) ||
-          i.market.toLowerCase().contains(query) ||
-          i.companyName.toLowerCase().contains(query) ||
-          i.prefix.toLowerCase().contains(query);
+      if (company.isNotEmpty && i.companyName != company) return false;
+      if (market.isNotEmpty && i.market.toLowerCase() != market) return false;
+      if (pack.isNotEmpty && i.packName != pack) return false;
+      return true;
     }).toList();
   }
 
-  /// Totals for the summary strip above the list.
-  int get totalIssued =>
-      ealIssuance.fold<int>(0, (sum, i) => sum + i.issuedQuantity);
+  /// What the list draws: the filtered records, by company and market then
+  /// pack size.
+  List<IssuanceGroup> get groupedIssuance => groupIssuances(filteredIssuance);
 
-  int get totalUnused =>
-      ealIssuance.fold<int>(0, (sum, i) => sum + i.balanceQuantity);
+  int get activeFilterCount => [
+        filterCompany.value,
+        filterMarket.value,
+        filterPack.value,
+      ].where((f) => f.isNotEmpty).length;
 
-  void pickDate() async {
-    DateTime? picked = await showDatePicker(
-      context: Get.context!,
-      initialDate: selectedDate.value,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
+  bool get hasFilters => activeFilterCount > 0;
 
-    if (picked != null) {
-      selectedDate.value = picked;
-      rangeDays.value = 1;
-      fetchEALIssuance();
-    }
+  /// Filter options come from the records on screen, so a filter can never
+  /// be set to something there is nothing of.
+  List<String> get companyOptions =>
+      ealIssuance.map((i) => i.companyName).toSet().toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+  List<String> get packOptions =>
+      ealIssuance.map((i) => i.packName).toSet().toList()..sort();
+
+  void clearFilters() {
+    filterCompany.value = '';
+    filterMarket.value = '';
+    filterPack.value = '';
   }
 
-  void setRange({required DateTime endDate, int days = 1}) {
-    selectedDate.value = endDate;
-    rangeDays.value = days;
+  /// Totals for the strip above the list, which shows what is on screen —
+  /// so they follow the filters.
+  int get totalIssued =>
+      filteredIssuance.fold<int>(0, (sum, i) => sum + i.issuedQuantity);
+
+  int get totalUnused =>
+      filteredIssuance.fold<int>(0, (sum, i) => sum + i.balanceQuantity);
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// True while the span is exactly the last [days] days ending today, which
+  /// is what lights the matching shortcut.
+  bool isPreset(int days) {
+    final today = _today();
+    return toDate.value == today &&
+        fromDate.value == today.subtract(Duration(days: days - 1));
+  }
+
+  /// True while the span is the single day before today.
+  bool get isYesterday {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    return fromDate.value == yesterday && toDate.value == yesterday;
+  }
+
+  bool get isSingleDay => fromDate.value == toDate.value;
+
+  void setSpan(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    fromDate.value = a.isAfter(b) ? b : a;
+    toDate.value = a.isAfter(b) ? a : b;
     fetchEALIssuance();
   }
 
+  /// The last [days] days, ending today.
+  void setLastDays(int days) {
+    final today = _today();
+    setSpan(today.subtract(Duration(days: days - 1)), today);
+  }
+
+  void setYesterday() {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    setSpan(yesterday, yesterday);
+  }
+
   void fetchEALIssuance() async {
-    final end = selectedDate.value;
-    final start = end.subtract(Duration(days: (rangeDays.value - 1).clamp(0, 365)));
+    final start = fromDate.value;
+    final end = toDate.value;
     final formatter = DateFormat('yyyy-MM-dd');
     final url =
         'eal_issuance?startDate=${formatter.format(start)}&endDate=${formatter.format(end)}';
@@ -181,21 +237,12 @@ class Issuancecontroller extends GetxController {
         ),
       );
       if (res.statusCode == 201) {
-        currentEalIssuance.add(
-          IssuanceModel(
-            companyName: company!.name,
-            market: market,
-            packName: pack!.name,
-            prefix: prefix.toUpperCase(),
-            serialFrom: serialFrom,
-            serialTo: serialTo,
-            issuedQuantity: issuedQuantity,
-            dateIssued: DateTime.now(),
-            id: '',
-            balanceQuantity: 0,
-            usedSerialRanges: [],
-          ),
-        );
+        if (company != null && pack != null) {
+          lastEntry = (company: company, pack: pack, market: market);
+        }
+        // The list is what shows the result now, so it is refetched rather
+        // than patched: the server owns the balance and the record id.
+        fetchEALIssuance();
         return null;
       }
 
