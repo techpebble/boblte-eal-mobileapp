@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:eal_scanner/theme/app_tokens.dart';
+import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 
 /// A span of dates, or one date.
@@ -69,6 +70,40 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
 
   DateTime get _resolvedEnd => _end ?? _start;
 
+  /// The named spans, which used to sit on the list itself. With the row
+  /// gone from the header, this sheet is the only place dates are chosen,
+  /// so the shortcuts come with it.
+  List<({String label, DateTime from, DateTime to})> get _presets {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    return [
+      (label: 'Today', from: today, to: today),
+      (label: 'Yesterday', from: yesterday, to: yesterday),
+      (
+        label: '7 days',
+        from: today.subtract(const Duration(days: 6)),
+        to: today,
+      ),
+      (
+        label: 'This month',
+        from: DateTime(today.year, today.month),
+        to: today,
+      ),
+    ];
+  }
+
+  /// A preset fills the calendar in rather than applying on the spot, so
+  /// every way of choosing a span commits at the same button.
+  void _usePreset(DateTime from, DateTime to) {
+    setState(() {
+      _start = from;
+      _end = to;
+      _month = DateTime(to.year, to.month);
+    });
+  }
+
   bool get _canGoForward {
     final limit = widget.lastAllowed;
     if (limit == null) return true;
@@ -124,10 +159,43 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                10,
+                AppSpace.gutter,
+                0,
+              ),
+              child: SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (final preset in _presets) ...[
+                      if (preset != _presets.first) const SizedBox(width: 7),
+                      FilterPill(
+                        label: preset.label,
+                        selected: _start == preset.from &&
+                            _resolvedEnd == preset.to &&
+                            _end != null,
+                        accent: widget.accent,
+                        onTap: () => _usePreset(preset.from, preset.to),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
             const Padding(
-              padding: EdgeInsets.fromLTRB(AppSpace.gutter, 2, AppSpace.gutter, 0),
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                11,
+                AppSpace.gutter,
+                0,
+              ),
               child: Text(
-                'Tap a day, then the last day. One day on its own is fine.',
+                'Or tap a day, then the last day. One day on its own is fine.',
                 style: AppText.small,
               ),
             ),

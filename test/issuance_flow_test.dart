@@ -89,7 +89,8 @@ void main() {
     await pumpList(tester);
 
     expect(controller.ealIssuance, hasLength(3));
-    expect(find.text('3 records'), findsOneWidget);
+    expect(find.textContaining('3 records'), findsOneWidget);
+    expect(find.textContaining('issued'), findsWidgets);
 
     // Two company-and-market cards, three pack bands between them.
     expect(find.text('Blue Ocean Beverages Pvt. Ltd.'), findsOneWidget);
@@ -130,8 +131,13 @@ void main() {
     expect(find.byType(SerialRangeText), findsOneWidget);
 
     // A pack left open from the last date would be one nobody opened.
+    await tester.tap(find.byIcon(Icons.calendar_today_rounded));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Today'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Show these dates'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(SerialRangeText), findsNothing);
   });
 
@@ -168,7 +174,7 @@ void main() {
       // border.
       expect(
         button.right,
-        closeTo(width - 18 - 13 - 1.5, 2),
+        closeTo(width - 18 - 10 - 1.5, 2),
         reason: 'at ${width}px wide the filter button drifted from the right '
             'edge, ending at ${button.right}',
       );
@@ -177,6 +183,18 @@ void main() {
       expect(title.left, closeTo(18, 1));
       expect(title.right, lessThan(button.left));
     }
+  });
+
+  testWidgets('the summary reads from the gutter, under the title', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    // A line that sizes to its content centres itself unless the column
+    // stretches it.
+    final title = tester.getRect(find.text('EAL issuance'));
+    final summary = tester.getRect(find.textContaining('3 records'));
+    expect(summary.left, closeTo(title.left, 1));
   });
 
   testWidgets('the filter button opens the sheet, which applies on confirm', (
@@ -212,18 +230,30 @@ void main() {
   ) async {
     await pumpList(tester);
 
-    // Last in a scrolling row of shortcuts, so bring it into view first.
-    final datePill = find.byIcon(Icons.calendar_today_rounded);
-    await tester.scrollUntilVisible(datePill, 120, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    await tester.tap(datePill);
+    await tester.tap(find.byIcon(Icons.calendar_today_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Dates'), findsOneWidget);
     expect(
-      find.text('Tap a day, then the last day. One day on its own is fine.'),
+      find.text('Or tap a day, then the last day. One day on its own is '
+          'fine.'),
       findsOneWidget,
     );
+
+    // The shortcuts came with the row that left the list.
+    for (final preset in ['Today', 'Yesterday', '7 days']) {
+      expect(find.text(preset), findsOneWidget, reason: '$preset is missing');
+    }
+
+    // The row scrolls, so the last one is reached rather than on screen —
+    // in the test font the four are wider than a phone.
+    await tester.dragUntilVisible(
+      find.text('This month'),
+      find.text('Today'),
+      const Offset(-120, 0),
+    );
+    expect(find.text('This month'), findsOneWidget);
+
     expect(find.text('Show these dates'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

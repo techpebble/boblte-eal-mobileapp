@@ -71,7 +71,11 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
       lastAllowed: DateTime.now(),
       accent: AppColors.indigo,
     );
-    if (span != null) _controller.setSpan(span.from, span.to);
+    // Through _reload, so a pack left open from the last span folds away
+    // with it — the sheet is now the only way the dates change.
+    if (span != null) {
+      _reload(() => _controller.setSpan(span.from, span.to));
+    }
   }
 
   String get _spanLabel {
@@ -105,41 +109,25 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
             ),
             child: SafeArea(
               bottom: false,
+              // Stretch, or a child that sizes to its content — the summary
+              // line — centres itself under a left-aligned title.
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Obx(() {
-                    final count = _controller.ealIssuance.length;
-                    return _TitleRow(
-                      countLabel: _controller.isLoading.value && count == 0
-                          ? null
-                          : '$count ${count == 1 ? 'record' : 'records'}',
+                  Obx(
+                    () => _TitleRow(
+                      spanLabel: _spanLabel,
                       filterCount: _controller.activeFilterCount,
+                      onDates: _pickDates,
                       onFilter: () async {
                         await showIssuanceFilterSheet(context);
                         if (mounted) setState(_open.clear);
                       },
-                    );
-                  }),
-
-                  Obx(
-                    () => _DateRow(
-                      isToday: _controller.isPreset(1),
-                      isYesterday: _controller.isYesterday,
-                      isWeek: _controller.isPreset(7),
-                      spanLabel: _spanLabel,
-                      spanActive:
-                          !_controller.isPreset(1) &&
-                          !_controller.isYesterday &&
-                          !_controller.isPreset(7),
-                      onToday: () => _reload(() => _controller.setLastDays(1)),
-                      onYesterday: () => _reload(_controller.setYesterday),
-                      onWeek: () => _reload(() => _controller.setLastDays(7)),
-                      onPickDates: _pickDates,
                     ),
                   ),
 
-                  // What the dates and filters come to, kept with the
-                  // controls that decide it.
+                  // What you are looking at, in one line: the two figures
+                  // are a sentence, not a dashboard.
                   Obx(() {
                     final loading =
                         _controller.isLoading.value &&
@@ -148,42 +136,20 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpace.gutter,
-                        12,
+                        5,
                         AppSpace.gutter,
                         0,
                       ),
-                      child: Container(
-                        padding: const EdgeInsets.only(top: 12, bottom: 13),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: AppColors.lineSoft,
-                              width: 1,
+                      child: loading
+                          ? const Align(
+                              alignment: Alignment.centerLeft,
+                              child: SkeletonBox(width: 230, height: 13),
+                            )
+                          : _SummaryLine(
+                              records: _controller.ealIssuance.length,
+                              issued: _controller.totalIssued,
+                              unused: _controller.totalUnused,
                             ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: _SummaryFigure(
-                                value: loading
-                                    ? null
-                                    : formatQty(_controller.totalIssued),
-                                label: 'labels issued',
-                              ),
-                            ),
-                            _SummaryFigure(
-                              value: loading
-                                  ? null
-                                  : formatQty(_controller.totalUnused),
-                              label: 'unused',
-                              color: AppColors.caution,
-                              alignEnd: true,
-                            ),
-                          ],
-                        ),
-                      ),
                     );
                   }),
 
@@ -297,235 +263,203 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
   }
 }
 
-/// Title, record count, and the one button that stands for all three
-/// filters. Lit with a count when any are on, so a filtered list never
-/// passes for the whole list.
+/// What this is, and the two controls. The day shortcuts moved into the
+/// date sheet, so the dates are chosen in one place instead of two — and
+/// the row they used to take is back in the list.
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
-    required this.countLabel,
+    required this.spanLabel,
     required this.filterCount,
+    required this.onDates,
     required this.onFilter,
   });
 
-  final String? countLabel;
+  /// The span in force, carried on the button so the header still says what
+  /// is on screen without a row of its own.
+  final String spanLabel;
+
   final int filterCount;
+  final VoidCallback onDates;
   final VoidCallback onFilter;
 
   @override
   Widget build(BuildContext context) {
     final on = filterCount > 0;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.gutter,
-            11,
-            AppSpace.gutter,
-            12,
-          ),
-          child: Row(
-            children: [
-              // The title and count share one Expanded, so all the free
-              // space lands here and the button stays hard against the
-              // right edge. Giving them a flex each alongside a Spacer
-              // split the space three ways instead: the title was cut
-              // short and its unused slot pushed the button inwards.
-              Expanded(
-                child: Row(
-                  children: [
-                    const Flexible(
-                      child: Text(
-                        'EAL issuance',
-                        style: AppText.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    if (countLabel != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          countLabel!,
-                          style: AppText.mono(
-                            size: 13,
-                            color: AppColors.ink500,
-                          ),
-                          maxLines: 1,
-                        ),
-                      )
-                    else
-                      const Padding(
-                        padding: EdgeInsets.only(top: 5),
-                        child: SkeletonBox(width: 58, height: 11),
-                      ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        10,
+        AppSpace.gutter,
+        0,
+      ),
+      child: SizedBox(
+        height: 38,
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'EAL issuance',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink900,
                 ),
               ),
-              const SizedBox(width: 10),
-              Semantics(
-                button: true,
-                label: on
-                    ? 'Filter — $filterCount '
-                          '${filterCount == 1 ? 'filter' : 'filters'} on'
-                    : 'Filter',
-                child: InkWell(
-                  onTap: onFilter,
-                  borderRadius: BorderRadius.circular(AppRadius.control),
-                  child: Container(
-                    height: 40,
-                    padding: EdgeInsets.fromLTRB(13, 0, on ? 11 : 13, 0),
-                    decoration: BoxDecoration(
-                      color: on ? AppColors.indigo : AppColors.surface,
-                      borderRadius: BorderRadius.circular(AppRadius.control),
-                      border: Border.all(
-                        color: on ? AppColors.indigo : AppColors.lineField,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.filter_list_rounded,
-                          size: 19,
-                          color: on ? Colors.white : AppColors.ink700,
-                        ),
-                        if (on) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '$filterCount',
-                            style: AppText.mono(
-                              size: 13.5,
-                              weight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ],
+            ),
+            const SizedBox(width: 8),
+            _HeaderButton(
+              onTap: onDates,
+              semanticLabel: 'Dates — $spanLabel',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 15,
+                    color: AppColors.navy,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    spanLabel,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink700,
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The named days first, because they are what gets tapped; the span last,
-/// for any other stretch — or any single day.
-class _DateRow extends StatelessWidget {
-  const _DateRow({
-    required this.isToday,
-    required this.isYesterday,
-    required this.isWeek,
-    required this.spanLabel,
-    required this.spanActive,
-    required this.onToday,
-    required this.onYesterday,
-    required this.onWeek,
-    required this.onPickDates,
-  });
-
-  final bool isToday;
-  final bool isYesterday;
-  final bool isWeek;
-  final String spanLabel;
-  final bool spanActive;
-  final VoidCallback onToday;
-  final VoidCallback onYesterday;
-  final VoidCallback onWeek;
-  final VoidCallback onPickDates;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 46,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(
-          AppSpace.gutter,
-          10,
-          AppSpace.gutter,
-          0,
-        ),
-        children: [
-          FilterPill(
-            label: 'Today',
-            selected: isToday,
-            accent: AppColors.indigo,
-            onTap: onToday,
-          ),
-          const SizedBox(width: 7),
-          FilterPill(
-            label: 'Yesterday',
-            selected: isYesterday,
-            accent: AppColors.indigo,
-            onTap: onYesterday,
-          ),
-          const SizedBox(width: 7),
-          FilterPill(
-            label: '7 days',
-            selected: isWeek,
-            accent: AppColors.indigo,
-            onTap: onWeek,
-          ),
-          const SizedBox(width: 7),
-          FilterPill(
-            label: spanLabel,
-            selected: spanActive,
-            accent: AppColors.indigo,
-            leading: Icon(
-              Icons.calendar_today_rounded,
-              size: 15,
-              color: spanActive ? Colors.white : AppColors.ink700,
             ),
-            onTap: onPickDates,
-          ),
-        ],
+            const SizedBox(width: 8),
+            _HeaderButton(
+              onTap: onFilter,
+              filled: on,
+              semanticLabel: on
+                  ? 'Filter — $filterCount '
+                        '${filterCount == 1 ? 'filter' : 'filters'} on'
+                  : 'Filter',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.filter_list_rounded,
+                    size: 17,
+                    color: on ? Colors.white : AppColors.ink700,
+                  ),
+                  if (on) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '$filterCount',
+                      style: AppText.mono(
+                        size: 12.5,
+                        weight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SummaryFigure extends StatelessWidget {
-  const _SummaryFigure({
-    required this.value,
-    required this.label,
-    this.color,
-    this.alignEnd = false,
+/// A 38px control, square when it carries only an icon.
+class _HeaderButton extends StatelessWidget {
+  const _HeaderButton({
+    required this.child,
+    required this.onTap,
+    required this.semanticLabel,
+    this.filled = false,
   });
 
-  /// Null while the figure is still loading.
-  final String? value;
-  final String label;
-  final Color? color;
-  final bool alignEnd;
+  final Widget child;
+  final VoidCallback onTap;
+  final String semanticLabel;
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        if (value == null)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: SkeletonBox(width: 82, height: 17),
-          )
-        else
-          Text(
-            value!,
-            style: color == null
-                ? AppText.figure(size: 17)
-                : AppText.figure(size: 17, color: color!),
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 38,
+          constraints: const BoxConstraints(minWidth: 38),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: filled ? AppColors.indigo : AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: filled ? AppColors.indigo : AppColors.lineField,
+              width: 1.5,
+            ),
           ),
-        Text(label, style: AppText.micro),
-      ],
+          child: Center(child: child),
+        ),
+      ),
+    );
+  }
+}
+
+/// "7 records · 408,900 issued · 159,300 unused".
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.records,
+    required this.issued,
+    required this.unused,
+  });
+
+  final int records;
+  final int issued;
+  final int unused;
+
+  @override
+  Widget build(BuildContext context) {
+    const dot = TextSpan(
+      text: '  ·  ',
+      style: TextStyle(color: AppColors.ink400),
+    );
+
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(fontSize: 12.5, color: AppColors.ink500),
+        children: [
+          TextSpan(
+            text: '$records',
+            style: AppText.mono(size: 12.5, color: AppColors.ink500),
+          ),
+          TextSpan(text: records == 1 ? ' record' : ' records'),
+          dot,
+          TextSpan(
+            text: formatQty(issued),
+            style: AppText.mono(size: 13.5, weight: FontWeight.w600),
+          ),
+          const TextSpan(text: ' issued'),
+          dot,
+          TextSpan(
+            text: formatQty(unused),
+            style: AppText.mono(
+              size: 13.5,
+              weight: FontWeight.w600,
+              color: AppColors.cautionDeep,
+            ),
+          ),
+          const TextSpan(text: ' unused'),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

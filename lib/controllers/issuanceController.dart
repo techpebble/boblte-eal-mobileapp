@@ -124,6 +124,19 @@ class Issuancecontroller extends GetxController {
     setSpan(yesterday, yesterday);
   }
 
+  /// The first of this month up to today, which is the span an excise
+  /// return is usually asked for.
+  void setThisMonth() {
+    final today = _today();
+    setSpan(DateTime(today.year, today.month), today);
+  }
+
+  bool get isThisMonth {
+    final today = _today();
+    return fromDate.value == DateTime(today.year, today.month) &&
+        toDate.value == today;
+  }
+
   void fetchEALIssuance() async {
     final start = fromDate.value;
     final end = toDate.value;
