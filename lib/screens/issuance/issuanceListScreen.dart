@@ -109,13 +109,17 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
             ),
             child: SafeArea(
               bottom: false,
-              // Stretch, or a child that sizes to its content — the summary
-              // line — centres itself under a left-aligned title.
+              // Stretch, or a child that sizes to its content centres
+              // itself under a left-aligned title.
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Obx(
                     () => _TitleRow(
+                      rangeCount: _controller.ealIssuance.length,
+                      loadingCount:
+                          _controller.isLoading.value &&
+                          _controller.ealIssuance.isEmpty,
                       spanLabel: _spanLabel,
                       filterCount: _controller.activeFilterCount,
                       onDates: _pickDates,
@@ -125,33 +129,6 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
                       },
                     ),
                   ),
-
-                  // What you are looking at, in one line: the two figures
-                  // are a sentence, not a dashboard.
-                  Obx(() {
-                    final loading =
-                        _controller.isLoading.value &&
-                        _controller.ealIssuance.isEmpty;
-
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpace.gutter,
-                        5,
-                        AppSpace.gutter,
-                        0,
-                      ),
-                      child: loading
-                          ? const Align(
-                              alignment: Alignment.centerLeft,
-                              child: SkeletonBox(width: 230, height: 13),
-                            )
-                          : _SummaryLine(
-                              records: _controller.ealIssuance.length,
-                              issued: _controller.totalIssued,
-                              unused: _controller.totalUnused,
-                            ),
-                    );
-                  }),
 
                   Obx(() {
                     final showing =
@@ -252,12 +229,28 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
           AppSpace.gutter,
           96,
         ),
-        itemCount: groups.length,
-        itemBuilder: (_, i) => _GroupSection(
-          group: groups[i],
-          isOpen: (pack) => _open.contains(_key(groups[i], pack)),
-          onToggle: (pack) => _toggle(_key(groups[i], pack)),
-        ),
+        // The total is worth a line only when more than one company is
+        // listed. With one, the heading right below carries those very
+        // numbers.
+        itemCount: groups.length + (groups.length > 1 ? 1 : 0),
+        itemBuilder: (_, index) {
+          var i = index;
+          if (groups.length > 1) {
+            if (i == 0) {
+              return _TotalStrip(
+                issued: _controller.totalIssued,
+                left: _controller.totalUnused,
+              );
+            }
+            i -= 1;
+          }
+
+          return _GroupSection(
+            group: groups[i],
+            isOpen: (pack) => _open.contains(_key(groups[i], pack)),
+            onToggle: (pack) => _toggle(_key(groups[i], pack)),
+          );
+        },
       ),
     );
   }
@@ -268,11 +261,18 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
 /// the row they used to take is back in the list.
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
+    required this.rangeCount,
+    required this.loadingCount,
     required this.spanLabel,
     required this.filterCount,
     required this.onDates,
     required this.onFilter,
   });
+
+  /// Ranges, not records: a pack card counts in ranges, so the header does
+  /// too.
+  final int rangeCount;
+  final bool loadingCount;
 
   /// The span in force, carried on the button so the header still says what
   /// is on screen without a row of its own.
@@ -291,81 +291,94 @@ class _TitleRow extends StatelessWidget {
         AppSpace.gutter,
         10,
         AppSpace.gutter,
-        0,
+        12,
       ),
-      child: SizedBox(
-        height: 38,
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'EAL issuance',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                  color: AppColors.ink900,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _HeaderButton(
-              onTap: onDates,
-              semanticLabel: 'Dates — $spanLabel',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.calendar_today_rounded,
-                    size: 15,
-                    color: AppColors.navy,
+      child: Row(
+        children: [
+          Expanded(
+            // The count belongs to the title, so it costs no height of
+            // its own — the buttons beside it are taller than one line.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'EAL issuance',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: AppColors.ink900,
                   ),
+                ),
+                const SizedBox(height: 1),
+                if (loadingCount)
+                  const SkeletonBox(width: 62, height: 11)
+                else
+                  Text(
+                    '$rangeCount ${rangeCount == 1 ? 'range' : 'ranges'}',
+                    style: AppText.micro,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _HeaderButton(
+            onTap: onDates,
+            semanticLabel: 'Dates — $spanLabel',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 15,
+                  color: AppColors.navy,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  spanLabel,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _HeaderButton(
+            onTap: onFilter,
+            filled: on,
+            semanticLabel: on
+                ? 'Filter — $filterCount '
+                      '${filterCount == 1 ? 'filter' : 'filters'} on'
+                : 'Filter',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.filter_list_rounded,
+                  size: 17,
+                  color: on ? Colors.white : AppColors.ink700,
+                ),
+                if (on) ...[
                   const SizedBox(width: 6),
                   Text(
-                    spanLabel,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ink700,
+                    '$filterCount',
+                    style: AppText.mono(
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _HeaderButton(
-              onTap: onFilter,
-              filled: on,
-              semanticLabel: on
-                  ? 'Filter — $filterCount '
-                        '${filterCount == 1 ? 'filter' : 'filters'} on'
-                  : 'Filter',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.filter_list_rounded,
-                    size: 17,
-                    color: on ? Colors.white : AppColors.ink700,
-                  ),
-                  if (on) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      '$filterCount',
-                      style: AppText.mono(
-                        size: 12.5,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -408,58 +421,6 @@ class _HeaderButton extends StatelessWidget {
           child: Center(child: child),
         ),
       ),
-    );
-  }
-}
-
-/// "7 records · 408,900 issued · 159,300 unused".
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({
-    required this.records,
-    required this.issued,
-    required this.unused,
-  });
-
-  final int records;
-  final int issued;
-  final int unused;
-
-  @override
-  Widget build(BuildContext context) {
-    const dot = TextSpan(
-      text: '  ·  ',
-      style: TextStyle(color: AppColors.ink400),
-    );
-
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(fontSize: 12.5, color: AppColors.ink500),
-        children: [
-          TextSpan(
-            text: '$records',
-            style: AppText.mono(size: 12.5, color: AppColors.ink500),
-          ),
-          TextSpan(text: records == 1 ? ' record' : ' records'),
-          dot,
-          TextSpan(
-            text: formatQty(issued),
-            style: AppText.mono(size: 13.5, weight: FontWeight.w600),
-          ),
-          const TextSpan(text: ' issued'),
-          dot,
-          TextSpan(
-            text: formatQty(unused),
-            style: AppText.mono(
-              size: 13.5,
-              weight: FontWeight.w600,
-              color: AppColors.cautionDeep,
-            ),
-          ),
-          const TextSpan(text: ' unused'),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -822,6 +783,68 @@ class _GroupedSkeleton extends StatelessWidget {
         card(),
         card(opacity: 0.5),
       ],
+    );
+  }
+}
+
+/// The grand total, above the sections it totals. It is a description of
+/// the query rather than a fact about the business, so it lives in the list
+/// and scrolls with it instead of sitting in the header.
+class _TotalStrip extends StatelessWidget {
+  const _TotalStrip({required this.issued, required this.left});
+
+  final int issued;
+  final int left;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 12),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.line, width: 1)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const Flexible(
+            child: Text(
+              'ALL COMPANIES',
+              style: AppText.section,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Both give way rather than overflowing; the figures are the
+          // reason the strip exists, so the label yields first.
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
+                children: [
+                  TextSpan(
+                    text: formatQty(issued),
+                    style: AppText.mono(size: 13, weight: FontWeight.w600),
+                  ),
+                  const TextSpan(text: ' issued  ·  '),
+                  TextSpan(
+                    text: formatQty(left),
+                    style: AppText.mono(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: AppColors.cautionDeep,
+                    ),
+                  ),
+                  const TextSpan(text: ' left'),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

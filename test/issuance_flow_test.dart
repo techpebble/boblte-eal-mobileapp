@@ -89,7 +89,7 @@ void main() {
     await pumpList(tester);
 
     expect(controller.ealIssuance, hasLength(3));
-    expect(find.textContaining('3 records'), findsOneWidget);
+    expect(find.text('3 ranges'), findsOneWidget);
     expect(find.textContaining('issued'), findsWidgets);
 
     // Two company-and-market cards, three pack bands between them.
@@ -185,6 +185,21 @@ void main() {
     }
   });
 
+  testWidgets('the total sits in the list, and only with two companies', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    // Two companies here, so the strip earns its line.
+    expect(find.text('ALL COMPANIES'), findsOneWidget);
+
+    // Narrowed to one company, the heading below says the same numbers, so
+    // the strip goes.
+    controller.filterCompany.value = 'Zenith Distillers';
+    await tester.pumpAndSettle();
+    expect(find.text('ALL COMPANIES'), findsNothing);
+  });
+
   testWidgets('the summary reads from the gutter, under the title', (
     tester,
   ) async {
@@ -193,7 +208,7 @@ void main() {
     // A line that sizes to its content centres itself unless the column
     // stretches it.
     final title = tester.getRect(find.text('EAL issuance'));
-    final summary = tester.getRect(find.textContaining('3 records'));
+    final summary = tester.getRect(find.text('3 ranges'));
     expect(summary.left, closeTo(title.left, 1));
   });
 
