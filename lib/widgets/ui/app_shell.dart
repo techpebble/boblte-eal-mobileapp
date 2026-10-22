@@ -26,6 +26,20 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _index = widget.initialIndex.clamp(0, _tabs.length - 1);
 
+  @override
+  void initState() {
+    super.initState();
+    // The role is cached from the sign-in and a token lasts a year, so an
+    // admin changing it would otherwise never reach the app. Re-read at the
+    // start, here rather than on the account screen, because this is what
+    // the tabs are built from: the bar settles once, in the first moment,
+    // instead of changing under someone later.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AuthService.refreshUser();
+      if (mounted) setState(() {});
+    });
+  }
+
   /// The tabs this account can actually use.
   ///
   /// Every one of them opens by asking the server for a list, and the server

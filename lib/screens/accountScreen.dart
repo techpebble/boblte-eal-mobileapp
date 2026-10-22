@@ -21,18 +21,6 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // The role is cached from the sign-in and a token lasts a year, so an
-    // admin changing it would otherwise never show here. Re-read on the way
-    // in, which is also what decides the tabs on the next start.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await AuthService.refreshUser();
-      if (mounted) setState(() {});
-    });
-  }
-
   late bool _torch = SettingsService.torchByDefault;
   late bool _feedback = SettingsService.scanFeedback;
   late String _prefix = SettingsService.defaultPrefix;

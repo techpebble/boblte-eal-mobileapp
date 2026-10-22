@@ -214,6 +214,34 @@ void main() {
       ]);
     });
 
+    testWidgets('a role without the dashboard opens on the next tab', (
+      tester,
+    ) async {
+      // Nothing in the five built-in roles can reach this, so it is pinned
+      // here: a custom role made without dashboard:view.
+      await signedInAs('ZZ Test — no dashboard', [
+        'issuance:view',
+        'issuance:create',
+        'usage:view',
+        'usage:create',
+        'dispatch:view',
+        'dispatch:link',
+        'dispatch:status',
+        'masterdata:view',
+      ]);
+
+      expect(await tabsFor(tester), [
+        'Issuance',
+        'Production',
+        'Dispatch',
+        'Account',
+      ]);
+
+      // And the first tab is the one it lands on, rather than an empty slot
+      // where Home used to be.
+      expect(find.text('EAL issuance'), findsOneWidget);
+    });
+
     testWidgets('so is a session whose role the app cannot read', (
       tester,
     ) async {
