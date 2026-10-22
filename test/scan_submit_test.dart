@@ -25,9 +25,10 @@ void main() {
     int? alreadyLinkedCases,
     String? subjectName,
     String? subjectMarket,
+    AppModule module = AppModule.issuance,
   }) {
     return ScanTarget(
-      module: AppModule.issuance,
+      module: module,
       title: 'Record issuance',
       contextLine: '90ml · Local · Blue Ocean Beverages Pvt. Ltd.',
       bottlesPerCase: 96,
@@ -181,6 +182,41 @@ void main() {
       find.widgetWithText(ElevatedButton, 'Use this serial'),
     );
     expect(use.onPressed, isNull);
+  });
+
+  testWidgets('linking checks the same count, in its own words', (
+    tester,
+  ) async {
+    // The same card production uses, because the act is the same one: a
+    // figure checked against what is on the pallet. Only the words and the
+    // colour belong to dispatch.
+    await pump(
+      tester,
+      target(
+        module: AppModule.dispatch,
+        unit: ScanUnit.cases,
+        subjectName: 'Reserve Whisky 750ml',
+        subjectMarket: 'local',
+        requiredCases: 1000,
+        alreadyLinkedCases: 0,
+        submit: (_) async => null,
+      ),
+    );
+    await typeWholeRange(tester);
+
+    expect(find.text('Reserve Whisky 750ml'), findsOneWidget);
+    expect(find.text('cases to link'), findsOneWidget);
+    expect(find.text('cases produced'), findsNothing);
+
+    final cases = tester.widget<Text>(find.text('1,000'));
+    expect(cases.style?.fontSize, 52);
+    expect(cases.style?.color, AppColors.amberDeep);
+
+    // The button says what it does with them, not "Record".
+    expect(
+      find.widgetWithText(ElevatedButton, 'Link 1,000 cases'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('production checks the case count on a card of its own', (

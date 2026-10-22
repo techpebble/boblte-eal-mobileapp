@@ -486,6 +486,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                 labels: _labels,
                 bottlesPerCase: _target.bottlesPerCase,
                 accent: accent,
+                accentDeep: _target.module.accentDeep,
+                countLabel: _target.countLabel,
               ),
               if (_draft.isPartialCase(_target.bottlesPerCase)) ...[
                 const SizedBox(height: AppSpace.lg),
@@ -596,8 +598,10 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                               )
                             : Text(
                                 leads
-                                    ? 'Record ${formatCases(_cases)}'
-                                    : 'Record ${formatLabels(_labels)}',
+                                    ? '${_target.actionVerb} '
+                                          '${formatCases(_cases)}'
+                                    : '${_target.actionVerb} '
+                                          '${formatLabels(_labels)}',
                               ),
                       ),
                       const SizedBox(height: 9),
@@ -1045,6 +1049,8 @@ class _VerifyCard extends StatelessWidget {
     required this.labels,
     required this.bottlesPerCase,
     required this.accent,
+    required this.accentDeep,
+    required this.countLabel,
   });
 
   final String subject;
@@ -1053,6 +1059,14 @@ class _VerifyCard extends StatelessWidget {
   final int labels;
   final int bottlesPerCase;
   final Color accent;
+
+  /// The figure takes the module's own deep colour, so the card reads as
+  /// production's or dispatch's rather than always as production's.
+  final Color accentDeep;
+
+  /// What the count is: "cases produced" on a run, "cases to link" against
+  /// a dispatch line.
+  final String countLabel;
 
   Widget _behind(String value, String label) {
     return Text.rich(
@@ -1119,13 +1133,13 @@ class _VerifyCard extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     formatQty(cases),
-                    style: AppText.figure(size: 52, color: AppColors.tealDeep),
+                    style: AppText.figure(size: 52, color: accentDeep),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'cases produced',
-                  style: TextStyle(
+                Text(
+                  countLabel,
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.ink500,

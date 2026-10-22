@@ -66,6 +66,15 @@ class ScanTarget {
 
   bool get hasTargetQuantity => requiredCases != null && requiredCases! > 0;
 
+  /// What the module does with the range, for the button that sends it.
+  /// "Record 1,000 cases" on a run; "Link 160 cases" against a dispatch
+  /// line, where recording is not what is happening.
+  String get actionVerb => module == AppModule.dispatch ? 'Link' : 'Record';
+
+  /// What the large figure counts, named under it.
+  String get countLabel =>
+      module == AppModule.dispatch ? 'cases to link' : 'cases produced';
+
   /// True where the finished count gets a card of its own rather than a
   /// tile beside the labels.
   bool get verifiesCount => subjectName != null && unit == ScanUnit.cases;

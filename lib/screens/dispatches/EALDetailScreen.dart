@@ -163,6 +163,11 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
             unit: ScanUnit.cases,
             requiredCases: item.quantityInCases,
             alreadyLinkedCases: item.issuedQty,
+            // The case count is what is checked against the pallet, so it
+            // gets the card of its own that production's run already had,
+            // with the item it belongs to on the same card.
+            subjectName: item.name,
+            subjectMarket: dispatch.market,
             submit: (draft) => _controller.submitEALLink(
               dispatchId: widget.dispatchId,
               itemId: item.itemId,
