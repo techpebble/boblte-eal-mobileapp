@@ -324,6 +324,7 @@ class EmptyState extends StatelessWidget {
     this.tint = AppColors.blueTint,
     this.primaryLabel,
     this.onPrimary,
+    this.primaryColor,
     this.secondaryLabel,
     this.onSecondary,
   });
@@ -335,6 +336,11 @@ class EmptyState extends StatelessWidget {
   final Color tint;
   final String? primaryLabel;
   final VoidCallback? onPrimary;
+
+  /// The button's colour where it should not be the accent — the offline
+  /// state tints its icon amber but keeps the app's ordinary button, so
+  /// "Try again" looks the same here as it does on the home screen.
+  final Color? primaryColor;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
 
@@ -381,7 +387,7 @@ class EmptyState extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: onPrimary,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
+                    backgroundColor: primaryColor ?? accent,
                     minimumSize: const Size.fromHeight(50),
                   ),
                   child: Text(primaryLabel ?? 'Continue'),
@@ -518,4 +524,48 @@ void showAppSnackbar(
       ),
     ),
   );
+}
+
+/// The one way all three lists say the server cannot be reached.
+///
+/// A lost network is not a server error, and the red banner the lists used
+/// read as one — the same treatment a refusal or a rejected range gets. It
+/// also stretched to whatever height it was given, so a two-line message
+/// filled the screen with pink. This is the same shape as the empty state
+/// beside it and the same language as the home screen's own offline view,
+/// so the three lists and the dashboard all say it the same way.
+class OfflineState extends StatelessWidget {
+  const OfflineState({
+    super.key,
+    required this.onRetry,
+    required this.what,
+    this.isRetrying = false,
+  });
+
+  final VoidCallback onRetry;
+
+  /// What could not be fetched, in the plural: "issuance", "production
+  /// entries", "dispatch notes".
+  final String what;
+
+  final bool isRetrying;
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: Icons.wifi_off_rounded,
+      title: 'No connection',
+      message:
+          'EAL Track reads and writes straight to the server, so $what cannot '
+          'be shown until the network is back. Nothing has been lost.',
+      accent: AppColors.caution,
+      tint: AppColors.cautionTint,
+      primaryLabel: isRetrying ? 'Trying…' : 'Try again',
+      onPrimary: isRetrying ? null : onRetry,
+      // The app's ordinary button, as on the home screen's offline view.
+      // Amber is for the icon, which says what kind of state this is; a
+      // whole amber button says it twice and louder.
+      primaryColor: AppColors.blue,
+    );
+  }
 }

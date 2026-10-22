@@ -18,6 +18,11 @@ class DispatchController extends GetxController {
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
+  /// Whether that failure was the network rather than the server. A lost
+  /// connection is not an error the operator did anything about, and it
+  /// gets its own state instead of a red banner.
+  RxBool isOffline = false.obs;
+
   /// `''` for all, `'short'` for notes still missing EAL links, otherwise a
   /// lifecycle stage. The API takes no status parameter, so this filters the
   /// day's records on the device.
@@ -78,6 +83,7 @@ class DispatchController extends GetxController {
   void fetchDispatches() async {
     isLoading.value = true;
     errorMessage.value = '';
+    isOffline.value = false;
 
     final end = selectedDate.value;
     final start = end.subtract(
@@ -102,6 +108,7 @@ class DispatchController extends GetxController {
         errorMessage.value = 'Could not load dispatches.';
       }
     } on DioException catch (e) {
+      isOffline.value = isConnectionFailure(e);
       errorMessage.value = readableDioError(e, 'Could not load dispatches.');
     } catch (_) {
       errorMessage.value = 'Could not load dispatches.';

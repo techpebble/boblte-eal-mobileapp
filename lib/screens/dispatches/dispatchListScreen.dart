@@ -87,7 +87,20 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
     }
 
     if (error.isNotEmpty && _controller.dispatches.isEmpty) {
-      return Padding(
+      // A lost network is not a server error. It gets the same state the
+      // home screen gives it, in the same words, rather than the red banner
+      // a refusal or a rejected range gets.
+      if (_controller.isOffline.value) {
+        return OfflineState(
+          what: 'dispatch notes',
+          isRetrying: _controller.isLoading.value,
+          onRetry: _controller.fetchDispatches,
+        );
+      }
+
+      // Top-aligned, or the banner takes every pixel it is offered and
+      // fills the screen with one colour.
+      return SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpace.gutter),
         child: NoticeBanner(
           level: NoticeLevel.error,

@@ -36,6 +36,11 @@ class Issuancecontroller extends GetxController {
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
+  /// Whether that failure was the network rather than the server. A lost
+  /// connection is not an error the operator did anything about, and it
+  /// gets its own state instead of a red banner.
+  RxBool isOffline = false.obs;
+
   /// Why the company or pack list could not be read. The sheet waits on both
   /// before it can record anything, so a refusal has to be said rather than
   /// left as a progress bar that never finishes.
@@ -153,6 +158,8 @@ class Issuancecontroller extends GetxController {
     try {
       isLoading.value = true;
       errorMessage.value = '';
+      isOffline.value = false;
+      isOffline.value = false;
       final Dio dio = DioClient().dio;
 
       final res = await dio.get(
@@ -167,6 +174,7 @@ class Issuancecontroller extends GetxController {
         errorMessage.value = 'Could not load issuance records.';
       }
     } on DioException catch (e) {
+      isOffline.value = isConnectionFailure(e);
       errorMessage.value = readableDioError(
         e,
         'Could not load issuance records.',

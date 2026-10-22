@@ -33,6 +33,11 @@ class UsageController extends GetxController {
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
+  /// Whether that failure was the network rather than the server. A lost
+  /// connection is not an error the operator did anything about, and it
+  /// gets its own state instead of a red banner.
+  RxBool isOffline = false.obs;
+
   /// Why the item list could not be read, where it could not be. A role may
   /// hold usage:create without masterdata:view, which lets someone open this
   /// screen and then be refused the list of items to record against — so the
@@ -140,6 +145,8 @@ class UsageController extends GetxController {
     try {
       isLoading.value = true;
       errorMessage.value = '';
+      isOffline.value = false;
+      isOffline.value = false;
       final Dio dio = DioClient().dio;
 
       final res = await dio.get(
@@ -154,6 +161,7 @@ class UsageController extends GetxController {
         errorMessage.value = 'Could not load production entries.';
       }
     } on DioException catch (e) {
+      isOffline.value = isConnectionFailure(e);
       errorMessage.value = readableDioError(
         e,
         'Could not load production entries.',

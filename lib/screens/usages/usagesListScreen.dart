@@ -176,7 +176,20 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
     }
 
     if (error.isNotEmpty && _controller.ealUsages.isEmpty) {
-      return Padding(
+      // A lost network is not a server error. It gets the same state the
+      // home screen gives it, in the same words, rather than the red banner
+      // a refusal or a rejected range gets.
+      if (_controller.isOffline.value) {
+        return OfflineState(
+          what: 'production entries',
+          isRetrying: _controller.isLoading.value,
+          onRetry: _controller.fetchEALUsage,
+        );
+      }
+
+      // Top-aligned, or the banner takes every pixel it is offered and
+      // fills the screen with one colour.
+      return SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpace.gutter),
         child: NoticeBanner(
           level: NoticeLevel.error,
