@@ -3,7 +3,9 @@ import 'package:eal_scanner/screens/usages/production_filter_sheet.dart';
 import 'package:eal_scanner/screens/usages/usagesListScreen.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/formatting.dart';
+import 'package:eal_scanner/widgets/ui/serial_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -28,6 +30,7 @@ void main() {
     required int cases,
     required int perCase,
     int hour = 9,
+    int waiting = 0,
   }) {
     return {
       '_id': '$item$cases$hour',
@@ -37,8 +40,8 @@ void main() {
       'dateUsed': '2026-10-21T0${hour}:00:00.000Z',
       'usedQuantity': cases * perCase,
       'usedQuantityInCases': cases,
-      'balanceQuantity': 0,
-      'balanceQuantityInCases': 0,
+      'balanceQuantity': waiting * perCase,
+      'balanceQuantityInCases': waiting,
       'market': market,
       'prefix': 'ML',
       'serialFrom': 12001,
@@ -55,10 +58,22 @@ void main() {
       'eal_usage': {
         'count': 3,
         'data': [
-          usageJson(cases: 200, perCase: 12, hour: 9),
-          usageJson(item: 'Old Monk 375ml', cases: 73, perCase: 24, hour: 1),
-          usageJson(item: 'OC Reserve 180ml', market: 'export',
-              cases: 50, perCase: 48, hour: 3),
+          usageJson(cases: 200, perCase: 12, hour: 9, waiting: 20),
+          usageJson(
+            item: 'Old Monk 375ml',
+            cases: 73,
+            perCase: 24,
+            hour: 1,
+            waiting: 73,
+          ),
+          // Nothing left waiting: this one has all gone out.
+          usageJson(
+            item: 'OC Reserve 180ml',
+            market: 'export',
+            cases: 50,
+            perCase: 48,
+            hour: 3,
+          ),
         ],
       },
     });
@@ -87,17 +102,117 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('cases lead and labels follow', (tester) async {
+  testWidgets('cases lead, and the labels ride with the pack size', (
+    tester,
+  ) async {
     await pumpList(tester);
 
-    // 200×12 + 73×24 = 4,152 labels local; plus 50×48 export = 6,552.
-    expect(find.text('cases entered'), findsOneWidget);
-    expect(find.text('labels consumed'), findsOneWidget);
-    expect(find.text('323'), findsOneWidget, reason: '200 + 73 + 50 cases');
-    expect(find.text('6,552'), findsOneWidget);
+    // Cases are the figure on the card: 200 of this item, 20 of them not
+    // yet dispatched.
+    expect(find.text('200'), findsOneWidget);
+    expect(find.text('cases'), findsNWidgets(3));
+    expect(find.text('20'), findsOneWidget);
+    expect(find.text('waiting'), findsNWidgets(2));
 
-    // The derived bottles-per-case is shown on the item band.
-    expect(find.textContaining('12 per case'), findsOneWidget);
+    // The labels sit in the small line with the derived bottles per case,
+    // not beside the figure. 200 × 12 = 2,400.
+    expect(find.textContaining('12 per case · 2,400 labels'), findsOneWidget);
+
+    // Totalled above the companies: 200 + 73 + 50 produced, 20 + 73 waiting.
+    expect(find.text('ALL COMPANIES'), findsOneWidget);
+    expect(
+      find.textContaining('323 produced'),
+      findsOneWidget,
+      reason: 'the total counts cases, not labels',
+    );
+    // Twice over: the total, and the one company that has any waiting.
+    expect(find.textContaining('93 waiting'), findsNWidgets(2));
+  });
+
+  testWidgets('an item with nothing waiting says so, not zero', (tester) async {
+    await pumpList(tester);
+
+    // A bare 0 in the waiting slot reads as missing data; the finished
+    // state reads as finished.
+    expect(find.text('All dispatched'), findsOneWidget);
+    expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('entries are folded away until an item is opened', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    expect(find.byType(SerialRangeText), findsNothing);
+
+    await tester.tap(find.text('OC Deluxe 750ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsOneWidget);
+
+    await tester.tap(find.text('OC Deluxe 750ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsNothing);
+  });
+
+  testWidgets('changing the dates folds everything away again', (tester) async {
+    await pumpList(tester);
+
+    await tester.tap(find.text('OC Deluxe 750ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.calendar_today_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show these dates'));
+    await tester.pumpAndSettle();
+
+    // An item left open from the last span is one nobody opened.
+    expect(find.byType(SerialRangeText), findsNothing);
+  });
+
+  testWidgets('a month of figures is not cut off anywhere', (tester) async {
+    // Two companies at month scale, where the figures run to seven digits.
+    DioClient().dio.httpClientAdapter = FakeApiRouter({
+      'eal_usage': {
+        'count': 2,
+        'data': [
+          usageJson(cases: 196500, perCase: 12, waiting: 84200),
+          usageJson(
+            company: 'Zenith Distillers',
+            item: 'Reserve 180ml',
+            market: 'export',
+            cases: 123456,
+            perCase: 48,
+            waiting: 99999,
+          ),
+        ],
+      },
+    });
+
+    await pumpList(tester);
+
+    // Every figure reads in full: inside the screen, and not ellipsised.
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    for (final figure in [
+      ...find.textContaining('produced').evaluate(),
+      ...find.textContaining('waiting').evaluate(),
+      ...find.textContaining('labels').evaluate(),
+    ]) {
+      final at = find.byWidget(figure.widget);
+      expect(
+        tester.getRect(at).right,
+        lessThanOrEqualTo(width + 0.5),
+        reason: 'a figure runs past the right edge',
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(at).didExceedMaxLines,
+        isFalse,
+        reason: 'a figure was cut off',
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('there is no search box, only a filter button', (tester) async {
@@ -131,22 +246,17 @@ void main() {
   testWidgets('the date control opens the shared range sheet', (tester) async {
     await pumpList(tester);
 
-    final datePill = find.byIcon(Icons.calendar_today_rounded);
-    await tester.scrollUntilVisible(datePill, 120,
-        scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    await tester.tap(datePill);
+    await tester.tap(find.byIcon(Icons.calendar_today_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('Dates'), findsOneWidget);
     expect(find.text('Show these dates'), findsOneWidget);
   });
 
-  testWidgets('the empty state names the date it is empty for', (
-    tester,
-  ) async {
-    DioClient().dio.httpClientAdapter =
-        FakeApiRouter({'eal_usage': {'count': 0, 'data': []}});
+  testWidgets('the empty state names the date it is empty for', (tester) async {
+    DioClient().dio.httpClientAdapter = FakeApiRouter({
+      'eal_usage': {'count': 0, 'data': []},
+    });
 
     await pumpList(tester);
 
@@ -176,7 +286,7 @@ void main() {
       final button = tester.getRect(find.byIcon(Icons.filter_list_rounded));
       expect(
         button.right,
-        closeTo(width - 18 - 13 - 1.5, 2),
+        closeTo(width - 18 - 10 - 1.5, 2),
         reason: 'at ${width}px the filter button drifted from the right edge',
       );
     }

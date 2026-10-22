@@ -3,10 +3,13 @@ import 'package:eal_scanner/models/usage.dart';
 
 /// Production entries gathered by company and market, then by item.
 ///
-/// The same shape as the issuance list, with two differences that come from
-/// the record rather than the design: an entry is a withdrawal and has no
-/// balance of its own, and production counts in cases, so cases lead and
-/// labels follow.
+/// The same shape as the issuance list, with one difference that comes from
+/// the record rather than the design: production counts in cases, so cases
+/// carry every level and the labels sit behind them.
+///
+/// An entry does keep a balance of its own. On a usage record the balance
+/// starts equal to what was produced and is drawn down as cases are linked
+/// to a dispatch, so it means the cases still waiting to go out.
 
 /// One item within a company and market.
 class ItemGroup {
@@ -17,6 +20,12 @@ class ItemGroup {
 
   int get cases => rows.fold<int>(0, (sum, r) => sum + r.usedQuantityInCases);
   int get labels => rows.fold<int>(0, (sum, r) => sum + r.usedQuantity);
+
+  /// Cases produced here that have not gone out on a dispatch yet.
+  int get waiting =>
+      rows.fold<int>(0, (sum, r) => sum + r.balanceQuantityInCases);
+
+  int get dispatched => cases - waiting;
 
   /// Bottles to a case, worked out from the two quantities the record
   /// already carries. Null where it does not divide evenly, rather than
@@ -45,6 +54,7 @@ class UsageGroup {
 
   int get cases => items.fold<int>(0, (sum, i) => sum + i.cases);
   int get labels => items.fold<int>(0, (sum, i) => sum + i.labels);
+  int get waiting => items.fold<int>(0, (sum, i) => sum + i.waiting);
   int get entryCount => items.fold<int>(0, (sum, i) => sum + i.rows.length);
 }
 
@@ -71,21 +81,23 @@ List<UsageGroup> groupUsages(List<UsageModel> rows) {
       byItem.putIfAbsent(row.itemName, () => []).add(row);
     }
 
-    final items = byItem.entries
-        .map(
-          (e) => ItemGroup(
-            itemName: e.key,
-            rows: e.value
-              ..sort((a, b) {
-                final byDate = a.dateUsed.compareTo(b.dateUsed);
-                if (byDate != 0) return byDate;
-                return (int.tryParse(a.serialFrom) ?? 0)
-                    .compareTo(int.tryParse(b.serialFrom) ?? 0);
-              }),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => compareBySize(a.itemName, b.itemName));
+    final items =
+        byItem.entries
+            .map(
+              (e) => ItemGroup(
+                itemName: e.key,
+                rows: e.value
+                  ..sort((a, b) {
+                    final byDate = a.dateUsed.compareTo(b.dateUsed);
+                    if (byDate != 0) return byDate;
+                    return (int.tryParse(a.serialFrom) ?? 0).compareTo(
+                      int.tryParse(b.serialFrom) ?? 0,
+                    );
+                  }),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => compareBySize(a.itemName, b.itemName));
 
     groups.add(
       UsageGroup(companyName: parts[0], market: parts[1], items: items),
@@ -93,8 +105,9 @@ List<UsageGroup> groupUsages(List<UsageModel> rows) {
   }
 
   groups.sort((a, b) {
-    final byCompany =
-        a.companyName.toLowerCase().compareTo(b.companyName.toLowerCase());
+    final byCompany = a.companyName.toLowerCase().compareTo(
+      b.companyName.toLowerCase(),
+    );
     if (byCompany != 0) return byCompany;
     return marketRank(a.market).compareTo(marketRank(b.market));
   });

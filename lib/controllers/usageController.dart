@@ -51,10 +51,10 @@ class UsageController extends GetxController {
   List<UsageGroup> get groupedUsages => groupUsages(filteredUsages);
 
   int get activeFilterCount => [
-        filterCompany.value,
-        filterMarket.value,
-        filterItem.value,
-      ].where((f) => f.isNotEmpty).length;
+    filterCompany.value,
+    filterMarket.value,
+    filterItem.value,
+  ].where((f) => f.isNotEmpty).length;
 
   bool get hasFilters => activeFilterCount > 0;
 
@@ -81,6 +81,10 @@ class UsageController extends GetxController {
 
   int get totalLabels =>
       filteredUsages.fold<int>(0, (sum, u) => sum + u.usedQuantity);
+
+  /// Cases produced in these dates that have not gone out on a dispatch.
+  int get totalWaiting =>
+      filteredUsages.fold<int>(0, (sum, u) => sum + u.balanceQuantityInCases);
 
   static DateTime _today() {
     final now = DateTime.now();
@@ -142,8 +146,10 @@ class UsageController extends GetxController {
         errorMessage.value = 'Could not load production entries.';
       }
     } on DioException catch (e) {
-      errorMessage.value =
-          readableDioError(e, 'Could not load production entries.');
+      errorMessage.value = readableDioError(
+        e,
+        'Could not load production entries.',
+      );
     } catch (_) {
       errorMessage.value = 'Could not load production entries.';
     } finally {
