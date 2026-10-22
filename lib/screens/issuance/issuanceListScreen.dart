@@ -563,34 +563,62 @@ class _PackCard extends StatelessWidget {
                     ),
 
                     // The figure you came for, before the small print.
+                    // Wrapped, not a Row with a Spacer: a pack running into
+                    // seven figures would push 'left' off the card edge.
                     const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          formatQty(issued),
-                          style: AppText.mono(
-                            size: 16,
-                            weight: FontWeight.w600,
+                    // Full width, or the Wrap shrinks to its content and
+                    // spaceBetween has nothing to spread.
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 10,
+                        runSpacing: 2,
+                        children: [
+                          Row(
+                            // Without this a Row claims the whole width, so
+                            // each half would take a line of its own even
+                            // with room to spare.
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                formatQty(issued),
+                                style: AppText.mono(
+                                  size: 16,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text('issued', style: AppText.micro),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text('issued', style: AppText.micro),
-                        const Spacer(),
-                        Text(
-                          formatQty(left),
-                          style: AppText.mono(
-                            size: 13,
-                            weight: FontWeight.w600,
-                            color: done
-                                ? AppColors.greenDeep
-                                : AppColors.cautionDeep,
+                          Row(
+                            // Without this a Row claims the whole width, so
+                            // each half would take a line of its own even
+                            // with room to spare.
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                formatQty(left),
+                                style: AppText.mono(
+                                  size: 13,
+                                  weight: FontWeight.w600,
+                                  color: done
+                                      ? AppColors.greenDeep
+                                      : AppColors.cautionDeep,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text('left', style: AppText.micro),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text('left', style: AppText.micro),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     LinkedProgressBar(
@@ -655,8 +683,9 @@ class _IssuedLeft extends StatelessWidget {
           const TextSpan(text: ' left'),
         ],
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      // Two lines, not one with an ellipsis: a figure that loses its tail
+      // reads as a smaller number, which is worse than a second line.
+      maxLines: 2,
     );
   }
 }
@@ -799,48 +828,44 @@ class _TotalStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 12),
       margin: const EdgeInsets.only(bottom: 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.line, width: 1)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      // A Wrap, not a Row. A Row cannot say "the label yields first, and
+      // if they still do not fit, go to two lines": two Flexibles split it
+      // evenly whatever they need, which cut a month's seven-digit figures
+      // while the label sat on space it had no use for, and making the
+      // figures rigid overflowed instead. Wrapped, the figures are never
+      // cut — they take a second line when they have to.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        spacing: 10,
+        runSpacing: 4,
         children: [
-          const Flexible(
-            child: Text(
-              'ALL COMPANIES',
-              style: AppText.section,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Both give way rather than overflowing; the figures are the
-          // reason the strip exists, so the label yields first.
-          Flexible(
-            child: Text.rich(
-              TextSpan(
-                style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
-                children: [
-                  TextSpan(
-                    text: formatQty(issued),
-                    style: AppText.mono(size: 13, weight: FontWeight.w600),
+          const Text('ALL COMPANIES', style: AppText.section),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(fontSize: 11.5, color: AppColors.ink500),
+              children: [
+                TextSpan(
+                  text: formatQty(issued),
+                  style: AppText.mono(size: 13, weight: FontWeight.w600),
+                ),
+                const TextSpan(text: ' issued  ·  '),
+                TextSpan(
+                  text: formatQty(left),
+                  style: AppText.mono(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: AppColors.cautionDeep,
                   ),
-                  const TextSpan(text: ' issued  ·  '),
-                  TextSpan(
-                    text: formatQty(left),
-                    style: AppText.mono(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: AppColors.cautionDeep,
-                    ),
-                  ),
-                  const TextSpan(text: ' left'),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+                ),
+                const TextSpan(text: ' left'),
+              ],
             ),
           ),
         ],

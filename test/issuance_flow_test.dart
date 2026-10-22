@@ -5,6 +5,7 @@ import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/widgets/ui/serial_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -60,15 +61,31 @@ void main() {
         'count': 3,
         'data': [
           issuanceJson(from: 2804736001, to: 2804832000, used: 57600),
-          issuanceJson(pack: '180ml', bottlesPerCase: 48,
-              from: 19450001, to: 19498000),
-          issuanceJson(company: 'Zenith Distillers', pack: '750ml',
-              bottlesPerCase: 12, market: 'export', prefix: 'EXP',
-              from: 200001, to: 236000),
+          issuanceJson(
+            pack: '180ml',
+            bottlesPerCase: 48,
+            from: 19450001,
+            to: 19498000,
+          ),
+          issuanceJson(
+            company: 'Zenith Distillers',
+            pack: '750ml',
+            bottlesPerCase: 12,
+            market: 'export',
+            prefix: 'EXP',
+            from: 200001,
+            to: 236000,
+          ),
         ],
       },
-      'companies': {'count': 1, 'data': [companyResponse()]},
-      'packs': {'count': 1, 'data': [packResponse()]},
+      'companies': {
+        'count': 1,
+        'data': [companyResponse()],
+      },
+      'packs': {
+        'count': 1,
+        'data': [packResponse()],
+      },
     });
   });
 
@@ -121,9 +138,7 @@ void main() {
     expect(find.byType(SerialRangeText), findsNothing);
   });
 
-  testWidgets('changing the dates folds everything away again', (
-    tester,
-  ) async {
+  testWidgets('changing the dates folds everything away again', (tester) async {
     await pumpList(tester);
 
     await tester.tap(find.text('90ml'));
@@ -175,7 +190,8 @@ void main() {
       expect(
         button.right,
         closeTo(width - 18 - 10 - 1.5, 2),
-        reason: 'at ${width}px wide the filter button drifted from the right '
+        reason:
+            'at ${width}px wide the filter button drifted from the right '
             'edge, ending at ${button.right}',
       );
 
@@ -198,6 +214,70 @@ void main() {
     controller.filterCompany.value = 'Zenith Distillers';
     await tester.pumpAndSettle();
     expect(find.text('ALL COMPANIES'), findsNothing);
+  });
+
+  testWidgets('a pack keeps issued and left on one line when they fit', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    // The two halves wrap only when they have to. A Row inside a Wrap
+    // claims the whole width unless told otherwise, which put each half
+    // on a line of its own however small the numbers were.
+    final issued = tester.getRect(find.text('issued').first);
+    final left = tester.getRect(find.text('left').first);
+    expect(left.top, closeTo(issued.top, 2));
+
+    // And 'left' stays at the card's far edge, where it reads as the second
+    // of two figures rather than a word trailing the first.
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(left.right, greaterThan(width * 0.7));
+  });
+
+  testWidgets('a month of figures is not cut off in the total', (tester) async {
+    // Two companies, seven digits each — a month's worth.
+    DioClient().dio.httpClientAdapter = FakeApiRouter({
+      'eal_issuance': {
+        'count': 2,
+        'data': [
+          issuanceJson(from: 1, to: 13095339, used: 6159120),
+          issuanceJson(
+            company: 'Zenith Distillers',
+            market: 'export',
+            pack: '750ml',
+            from: 20000001,
+            to: 26936219,
+          ),
+        ],
+      },
+    });
+
+    await pumpList(tester);
+
+    expect(find.text('ALL COMPANIES'), findsOneWidget);
+
+    // Every figure reads in full: inside the screen, and not ellipsised.
+    // A Row split between two Flexibles gave each half the width whatever
+    // it needed, so seven digits lost their tail while the label beside
+    // them sat on space it had no use for.
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    for (final figure in [
+      ...find.textContaining('issued').evaluate(),
+      ...find.textContaining('left').evaluate(),
+    ]) {
+      final at = find.byWidget(figure.widget);
+      expect(
+        tester.getRect(at).right,
+        lessThanOrEqualTo(width + 0.5),
+        reason: 'a figure runs past the right edge',
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(at).didExceedMaxLines,
+        isFalse,
+        reason: 'a figure was clipped',
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the summary reads from the gutter, under the title', (
@@ -250,8 +330,10 @@ void main() {
 
     expect(find.text('Dates'), findsOneWidget);
     expect(
-      find.text('Or tap a day, then the last day. One day on its own is '
-          'fine.'),
+      find.text(
+        'Or tap a day, then the last day. One day on its own is '
+        'fine.',
+      ),
       findsOneWidget,
     );
 
