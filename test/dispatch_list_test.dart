@@ -122,7 +122,8 @@ void main() {
 
     // 2,600 − 2,440 = 160 outstanding on the first note.
     expect(find.text('160'), findsOneWidget);
-    expect(find.text('short'), findsNWidgets(2));
+    // Two cards are short, and the header's button is a third.
+    expect(find.text('short'), findsNWidgets(3));
 
     // Totalled above the companies: 5,800 cases, 1,600 short.
     expect(find.text('ALL COMPANIES'), findsOneWidget);
@@ -209,6 +210,52 @@ void main() {
       isEmpty,
     );
     expect(find.text('Central Depot'), findsOneWidget);
+  });
+
+  testWidgets('the short figure is the one-tap way to what needs labels', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    // Four taps through the filter sheet, for the thing a dispatch clerk
+    // does most. The figure was on screen the whole time, saying nothing.
+    expect(find.text('1,600'), findsOneWidget);
+    await tester.tap(find.text('1,600'));
+    await tester.pumpAndSettle();
+
+    expect(controller.statusFilter.value, 'short');
+    expect(find.text('Central Depot'), findsOneWidget);
+
+    // Tapping it again puts the rest back.
+    await tester.tap(find.text('1,600'));
+    await tester.pumpAndSettle();
+    expect(controller.statusFilter.value, '');
+  });
+
+  testWidgets('the shortcut is there with a single company too', (
+    tester,
+  ) async {
+    // The totals strip is only drawn above more than one group, and a plant
+    // with one company and one market has one. The shortcut used to live in
+    // that strip, so on the data most sites actually have it was missing.
+    DioClient().dio.httpClientAdapter = FakeApiRouter({
+      'dispatch': {
+        'count': 1,
+        'data': [noteJson(cases: 2600, linked: 2440)],
+      },
+    });
+    controller.fetchDispatches();
+    await pumpList(tester);
+
+    expect(find.text('ALL COMPANIES'), findsNothing);
+    expect(find.text('1 note'), findsOneWidget);
+
+    // The heading carries the same figure, so reach for the button itself.
+    final button = find.bySemanticsLabel(RegExp('160 cases short'));
+    expect(button, findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(controller.statusFilter.value, 'short');
   });
 
   testWidgets('the pills are gone; the filter is behind one button', (

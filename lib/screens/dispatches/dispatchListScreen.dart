@@ -41,6 +41,15 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
     super.dispose();
   }
 
+  /// The thing a dispatch clerk does most: see what still needs labels.
+  /// It was one tap on the old screen's "Short" chip, and four once the
+  /// stages moved into the filter sheet.
+  void _toggleShortOnly() {
+    _controller.statusFilter.value = _controller.statusFilter.value == 'short'
+        ? ''
+        : 'short';
+  }
+
   void _clearSearch() {
     _search.clear();
     _controller.searchQuery.value = '';
@@ -110,6 +119,10 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
                           _controller.dispatches.isEmpty,
                       spanLabel: _spanLabel,
                       filterCount: _controller.activeFilterCount,
+                      short: _controller.totalShort,
+                      showingShortOnly:
+                          _controller.statusFilter.value == 'short',
+                      onShort: _toggleShortOnly,
                       onDates: _pickDates,
                       onFilter: () => showDispatchFilterSheet(context),
                     ),
@@ -278,12 +291,20 @@ class _TitleRow extends StatelessWidget {
     required this.loadingCount,
     required this.spanLabel,
     required this.filterCount,
+    required this.short,
+    required this.showingShortOnly,
+    required this.onShort,
     required this.onDates,
     required this.onFilter,
   });
 
   final int noteCount;
   final bool loadingCount;
+
+  /// Cases with no labels against them, across everything on screen.
+  final int short;
+  final bool showingShortOnly;
+  final VoidCallback onShort;
   final String spanLabel;
   final int filterCount;
   final VoidCallback onDates;
@@ -322,9 +343,28 @@ class _TitleRow extends StatelessWidget {
                 if (loadingCount)
                   const SkeletonBox(width: 62, height: 11)
                 else
-                  Text(
-                    '$noteCount ${noteCount == 1 ? 'note' : 'notes'}',
-                    style: AppText.micro,
+                  // A Wrap, so a long count or a wide font pushes the
+                  // button onto its own line instead of cutting it off.
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 3,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '$noteCount ${noteCount == 1 ? 'note' : 'notes'}',
+                        style: AppText.micro,
+                      ),
+                      // The figure is the shortcut, and it lives here
+                      // rather than in the strip below: the strip is only
+                      // drawn with more than one company, and most plants
+                      // have one.
+                      if (short > 0 || showingShortOnly)
+                        _ShortButton(
+                          short: short,
+                          selected: showingShortOnly,
+                          onTap: onShort,
+                        ),
+                    ],
                   ),
               ],
             ),
@@ -779,6 +819,70 @@ class _NoteCard extends StatelessWidget {
                 height: 6,
                 accent: done ? AppColors.green : AppColors.caution,
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The outstanding figure, as a control. Tapping it narrows the list to the
+/// notes still short; tapping it again puts the rest back.
+class _ShortButton extends StatelessWidget {
+  const _ShortButton({
+    required this.short,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int short;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: selected
+          ? 'Showing only the notes still short. Tap to show all.'
+          : '${formatQty(short)} cases short. Tap to show only those notes.',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(9, 3, 9, 3),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.caution : AppColors.cautionTint,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                formatQty(short),
+                style: AppText.mono(
+                  size: 12.5,
+                  weight: FontWeight.w600,
+                  color: selected ? Colors.white : AppColors.cautionDeep,
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Selected, the cross carries the meaning and the word would
+              // only crowd it: filled amber already says this is the
+              // shortfall, and the reading is in the Semantics label.
+              if (selected)
+                const Icon(Icons.close_rounded, size: 13, color: Colors.white)
+              else
+                const Text(
+                  'short',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.cautionDeep,
+                  ),
+                ),
             ],
           ),
         ),

@@ -28,6 +28,9 @@ class AppColors {
   static const amberDeep = Color(0xFF8A4514);
   static const amberTint = Color(0xFFFBF0E7);
 
+  /// The ring round a stage the note has reached, as blueLine is for blue.
+  static const amberLine = Color(0xFFF2DCC8);
+
   // Feedback
   static const green = Color(0xFF0E7A4F);
   static const greenDeep = Color(0xFF0B6341);

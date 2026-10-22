@@ -264,7 +264,11 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
   }
 }
 
-/// The five stages, drawn as a rail. Replaces the status chip the old screen
+/// The five stages, drawn as a rail.
+///
+/// In the module's own colour: this is dispatch's chrome, and it sat blue
+/// beneath an amber Save button. The dot on each stage keeps its own
+/// meaning — that is the stage speaking, not the screen. Replaces the status chip the old screen
 /// pinned to the bottom-right corner of the header card.
 class _StageRail extends StatelessWidget {
   const _StageRail({required this.status});
@@ -292,7 +296,7 @@ class _StageRail extends StatelessWidget {
                           color: i == 0
                               ? Colors.transparent
                               : (i <= current
-                                    ? AppColors.blue
+                                    ? AppColors.amber
                                     : AppColors.line),
                         ),
                       ),
@@ -301,10 +305,12 @@ class _StageRail extends StatelessWidget {
                         height: i == current ? 20 : 18,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: i <= current ? AppColors.blue : AppColors.line,
+                          color: i <= current
+                              ? AppColors.amber
+                              : AppColors.line,
                           shape: BoxShape.circle,
                           border: i == current
-                              ? Border.all(color: AppColors.blueLine, width: 4)
+                              ? Border.all(color: AppColors.amberLine, width: 4)
                               : null,
                         ),
                         child: i < current
@@ -320,7 +326,9 @@ class _StageRail extends StatelessWidget {
                           height: 2,
                           color: i == kDispatchStages.length - 1
                               ? Colors.transparent
-                              : (i < current ? AppColors.blue : AppColors.line),
+                              : (i < current
+                                    ? AppColors.amber
+                                    : AppColors.line),
                         ),
                       ),
                     ],
@@ -334,7 +342,7 @@ class _StageRail extends StatelessWidget {
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: i <= current
-                          ? AppColors.blueDeep
+                          ? AppColors.amberDeep
                           : AppColors.ink500,
                     ),
                   ),
@@ -914,8 +922,8 @@ class _StageOption extends StatelessWidget {
       border = AppColors.cautionLine;
       background = AppColors.cautionTint;
     } else if (selected) {
-      border = AppColors.blue;
-      background = AppColors.blueTint;
+      border = AppColors.amber;
+      background = AppColors.amberTint;
     } else if (unreachableAfter != null) {
       border = AppColors.lineSoft;
       background = AppColors.field;
@@ -948,7 +956,7 @@ class _StageOption extends StatelessWidget {
                   : Icons.radio_button_unchecked_rounded,
               size: 21,
               color: selected
-                  ? AppColors.blue
+                  ? AppColors.amber
                   : (_disabled ? AppColors.ink400 : AppColors.ink500),
             ),
           const SizedBox(width: 11),
