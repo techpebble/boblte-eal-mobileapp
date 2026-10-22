@@ -30,6 +30,22 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
   final DispatchController _controller = Get.find<DispatchController>();
   bool _requested = false;
 
+  /// Held here so that clearing the search clears the box as well. With the
+  /// field keeping its own text, "Clear the search" refilled the list and
+  /// left the words sitting above it, the two disagreeing.
+  final TextEditingController _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _clearSearch() {
+    _search.clear();
+    _controller.searchQuery.value = '';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -106,8 +122,17 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
                       AppSpace.gutter,
                       11,
                     ),
-                    child: _SearchField(
-                      onChanged: (v) => _controller.searchQuery.value = v,
+                    child: Obx(
+                      () => _SearchField(
+                        controller: _search,
+                        // Read so the clear button appears and goes with
+                        // the text.
+                        hasText: _controller.searchQuery.value
+                            .trim()
+                            .isNotEmpty,
+                        onChanged: (v) => _controller.searchQuery.value = v,
+                        onClear: _clearSearch,
+                      ),
                     ),
                   ),
 
@@ -187,7 +212,7 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
           tint: AppColors.amberTint,
           primaryLabel: searching ? 'Clear the search' : 'Clear the filters',
           onPrimary: () {
-            _controller.searchQuery.value = '';
+            _clearSearch();
             _controller.clearFilters();
           },
           secondaryLabel: searching ? null : 'Change the filters',
@@ -408,13 +433,22 @@ class _HeaderButton extends StatelessWidget {
 /// The one list that keeps a search box, and the reason is on the screen:
 /// a vehicle number is not something to pick from a list of what exists.
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onChanged});
+  const _SearchField({
+    required this.controller,
+    required this.hasText,
+    required this.onChanged,
+    required this.onClear,
+  });
 
+  final TextEditingController controller;
+  final bool hasText;
   final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       onChanged: onChanged,
       textInputAction: TextInputAction.search,
       style: const TextStyle(fontSize: 14, color: AppColors.ink900),
@@ -427,6 +461,18 @@ class _SearchField extends StatelessWidget {
           color: AppColors.ink500,
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 40),
+        // Clearing a search was only offered on the empty state, so there
+        // was no way back from one that matched something.
+        suffixIcon: hasText
+            ? IconButton(
+                onPressed: onClear,
+                icon: const Icon(Icons.close_rounded, size: 17),
+                tooltip: 'Clear the search',
+                visualDensity: VisualDensity.compact,
+                color: AppColors.ink500,
+              )
+            : null,
+        suffixIconConstraints: const BoxConstraints(minWidth: 40),
         filled: true,
         fillColor: AppColors.field,
         isDense: true,

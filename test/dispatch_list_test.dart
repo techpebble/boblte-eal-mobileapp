@@ -168,6 +168,49 @@ void main() {
     expect(find.text('Central Depot'), findsNothing);
   });
 
+  testWidgets('clearing the search empties the box, not just the list', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    await tester.enterText(find.byType(TextField), 'nothing matches this');
+    await tester.pumpAndSettle();
+    expect(find.text('Clear the search'), findsOneWidget);
+
+    await tester.tap(find.text('Clear the search'));
+    await tester.pumpAndSettle();
+
+    // The box kept its own text, so this refilled the list and left the
+    // words sitting above it, the two disagreeing.
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      isEmpty,
+    );
+    expect(find.text('Central Depot'), findsOneWidget);
+  });
+
+  testWidgets('a search can be cleared from the box itself', (tester) async {
+    await pumpList(tester);
+
+    // No × at all until there is something to clear.
+    expect(find.byTooltip('Clear the search'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'KT 1180');
+    await tester.pumpAndSettle();
+    expect(find.text('Central Depot'), findsNothing);
+
+    // Without this, a search that matched something could not be undone:
+    // clearing was only offered on the empty state.
+    await tester.tap(find.byTooltip('Clear the search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      isEmpty,
+    );
+    expect(find.text('Central Depot'), findsOneWidget);
+  });
+
   testWidgets('the pills are gone; the filter is behind one button', (
     tester,
   ) async {
