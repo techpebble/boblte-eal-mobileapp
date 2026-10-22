@@ -72,7 +72,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        hintStyle: const TextStyle(fontSize: 15, color: AppColors.ink500),
+        // A hint is an example, not a value: ink500 read as something
+        // already typed in. One step lighter keeps the difference obvious
+        // at a glance.
+        hintStyle: const TextStyle(fontSize: 15, color: AppColors.ink400),
         labelStyle: AppText.label,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
