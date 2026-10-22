@@ -281,6 +281,30 @@ void main() {
     });
   });
 
+  group('signing out', () {
+    test('ends the session and leaves the phone alone', () async {
+      await signedInAs('Field Operator', ['issuance:view']);
+      await storage.write('auth_token', 'a-token');
+
+      // Set by the person, on this phone, for this bottling hall.
+      await storage.write('pref_torch_default', false);
+      await storage.write('pref_scan_feedback', false);
+      await storage.write('pref_default_prefix', 'DLK');
+
+      await AuthService.clearSession();
+
+      expect(AuthService.token, isNull);
+      expect(AuthService.user, isNull);
+      expect(AuthService.isLoggedIn(), isFalse);
+
+      // Erasing the whole store took these with it, so an expired token
+      // left someone in a dark hall with the torch off.
+      expect(storage.read('pref_torch_default'), isFalse);
+      expect(storage.read('pref_scan_feedback'), isFalse);
+      expect(storage.read('pref_default_prefix'), 'DLK');
+    });
+  });
+
   group('which failures end the session', () {
     DioException failure(int status, Object? body) {
       final options = RequestOptions(path: '/eal_usage');

@@ -129,8 +129,17 @@ class AuthService {
     await _storage.write(_userKey, data['user']);
   }
 
+  /// Ends the session and nothing else.
+  ///
+  /// This erased the whole store, and the scanning preferences share it —
+  /// so signing out, or a token the server stopped taking, also took the
+  /// torch default, the scan feedback and the default prefix with it. Those
+  /// belong to the phone and the person holding it, not to the session: an
+  /// expired token should not leave someone in a dark bottling hall with
+  /// the torch off.
   static Future<void> clearSession() async {
-    await _storage.erase();
+    await _storage.remove(_tokenKey);
+    await _storage.remove(_userKey);
   }
 
   static bool isLoggedIn() {
