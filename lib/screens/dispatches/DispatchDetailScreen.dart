@@ -566,6 +566,17 @@ class _LineCard extends StatelessWidget {
 /// The old sheet let any stage be tapped and reported the refusal afterwards
 /// in a snackbar. Here a stage that cannot be reached says so before it is
 /// tapped, and names what is blocking it.
+/// Every field in the sheet is laid out to the same line height.
+///
+/// Without this a field's height follows its own font: the contact field is
+/// monospaced and the driver field is not, so the two boxes beside each
+/// other came out 2px apart at the top and 4px at the bottom.
+const StrutStyle _fieldStrut = StrutStyle(
+  fontSize: 15.5,
+  height: 1.3,
+  forceStrutHeight: true,
+);
+
 class _UpdateDispatchSheet extends StatefulWidget {
   const _UpdateDispatchSheet({
     required this.dispatch,
@@ -715,6 +726,7 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                     TextField(
                       controller: _vehicle,
                       textCapitalization: TextCapitalization.characters,
+                      strutStyle: _fieldStrut,
                       style: AppText.mono(size: 15.5, weight: FontWeight.w600),
                       inputFormatters: [
                         TextInputFormatter.withFunction(
@@ -722,9 +734,7 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                               next.copyWith(text: next.text.toUpperCase()),
                         ),
                       ],
-                      decoration: const InputDecoration(
-                        hintText: 'BR 01 GA 0000',
-                      ),
+                      decoration: const InputDecoration(hintText: 'BR01GA0000'),
                     ),
 
                     const SizedBox(height: AppSpace.lg),
@@ -732,6 +742,7 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
+                          flex: 3,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -740,6 +751,7 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                               TextField(
                                 controller: _driver,
                                 textCapitalization: TextCapitalization.words,
+                                strutStyle: _fieldStrut,
                                 decoration: const InputDecoration(
                                   hintText: 'Full name',
                                 ),
@@ -748,8 +760,8 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                           ),
                         ),
                         const SizedBox(width: 11),
-                        SizedBox(
-                          width: 140,
+                        Expanded(
+                          flex: 2,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -758,6 +770,7 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                               TextField(
                                 controller: _contact,
                                 keyboardType: TextInputType.phone,
+                                strutStyle: _fieldStrut,
                                 style: AppText.mono(size: 15),
                                 decoration: const InputDecoration(
                                   hintText: '10 digits',
