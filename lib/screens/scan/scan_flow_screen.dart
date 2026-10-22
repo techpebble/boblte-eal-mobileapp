@@ -1137,11 +1137,17 @@ class _VerifyCard extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(14, 9, 14, 11),
+            // Its own bottom corners, and darker than the page. A square
+            // child painted over the card's rounded border, which is drawn
+            // behind it, so the two bottom corners went missing and the
+            // bottom edge read as a line adrift under the card. Canvas here
+            // was the page colour exactly, which hid the band as well.
             decoration: const BoxDecoration(
-              color: AppColors.canvas,
-              border: Border(
-                top: BorderSide(color: AppColors.lineSoft, width: 1),
+              color: AppColors.sunken,
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(14.5),
               ),
+              border: Border(top: BorderSide(color: AppColors.line, width: 1)),
             ),
             child: Wrap(
               alignment: WrapAlignment.center,
@@ -1150,7 +1156,7 @@ class _VerifyCard extends StatelessWidget {
               runSpacing: 2,
               children: [
                 _behind(formatQty(labels), 'labels'),
-                const Text('·', style: TextStyle(color: AppColors.lineField)),
+                const Text('·', style: TextStyle(color: AppColors.ink400)),
                 _behind('$bottlesPerCase', 'per case'),
               ],
             ),

@@ -227,6 +227,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the strip under the count keeps the card\'s bottom corners', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      target(
+        unit: ScanUnit.cases,
+        subjectName: 'OC Deluxe 750ml',
+        subjectMarket: 'local',
+        submit: (_) async => null,
+      ),
+    );
+    await typeWholeRange(tester);
+
+    final strip = tester.widget<Container>(
+      find
+          .ancestor(of: find.byType(Wrap), matching: find.byType(Container))
+          .first,
+    );
+    final box = strip.decoration! as BoxDecoration;
+
+    // A square child paints over the card's rounded border, which is drawn
+    // behind it, and the two bottom corners go missing.
+    expect(
+      box.borderRadius,
+      isNotNull,
+      reason: 'the strip would square off the card',
+    );
+
+    // And it has to differ from the page, or the band reads as empty space
+    // below the card rather than part of it.
+    expect(box.color, isNot(AppColors.canvas));
+  });
+
   testWidgets('the big count scales down rather than overflowing', (
     tester,
   ) async {
