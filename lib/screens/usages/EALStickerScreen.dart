@@ -77,8 +77,6 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
               label: i.displayName,
               // Listed by the short alias, but the full name still matches.
               searchText: i.name,
-              isActive: i.isActive,
-              inactiveNote: 'Discontinued',
               chips: [
                 i.itemCode,
                 '${i.bottlesPerCase} per case',
@@ -286,9 +284,9 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
                 child: Text(
                   item == null
                       ? 'Choose the item that was bottled, then scan the '
-                          'labels used.'
+                            'labels used.'
                       : 'Nothing yet. Scan the first and last label of the '
-                          'run.',
+                            'run.',
                   style: AppText.small,
                 ),
               )
@@ -323,7 +321,8 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
               NoticeBanner(
                 level: NoticeLevel.info,
                 title: 'Ranges must come from an issuance',
-                message: 'The labels you scan have to be on an issuance for '
+                message:
+                    'The labels you scan have to be on an issuance for '
                     'this pack size, or the server will refuse the entry.',
               ),
             ],
@@ -481,12 +480,7 @@ class _RecordedRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SerialRangeText(
-                  prefix: prefix,
-                  from: from,
-                  to: to,
-                  size: 13.5,
-                ),
+                SerialRangeText(prefix: prefix, from: from, to: to, size: 13.5),
                 const SizedBox(height: 3),
                 Text(
                   '${formatCases(cases)} · ${formatLabels(labels)}',

@@ -10,8 +10,6 @@ class PickerOption<T> {
     required this.label,
     this.chips = const [],
     this.subtitle,
-    this.isActive = true,
-    this.inactiveNote,
     this.searchText,
   });
 
@@ -28,13 +26,13 @@ class PickerOption<T> {
 
   /// Inactive options are listed but cannot be chosen, so an operator can see
   /// that a discontinued item exists rather than wondering why it is missing.
-  final bool isActive;
-  final String? inactiveNote;
 
-  String get _haystack =>
-      [label, subtitle ?? '', searchText ?? '', ...chips]
-          .join(' ')
-          .toLowerCase();
+  String get _haystack => [
+    label,
+    subtitle ?? '',
+    searchText ?? '',
+    ...chips,
+  ].join(' ').toLowerCase();
 }
 
 /// A searchable selection sheet.
@@ -256,7 +254,12 @@ class _GroupLabel extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.field,
-      padding: const EdgeInsets.fromLTRB(AppSpace.gutter, 14, AppSpace.gutter, 7),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        14,
+        AppSpace.gutter,
+        7,
+      ),
       child: Text(text.toUpperCase(), style: AppText.section),
     );
   }
@@ -277,24 +280,22 @@ class _OptionRow<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = option.isActive;
-
-    final content = Container(
-      constraints: const BoxConstraints(minHeight: 62),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.gutter,
-        vertical: 12,
-      ),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? accent.withValues(alpha: 0.08)
-            : (highlight ? AppColors.field : null),
-        border: const Border(
-          bottom: BorderSide(color: AppColors.lineSoft, width: 1),
+    return InkWell(
+      onTap: () => Navigator.pop(context, option.value),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 62),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.gutter,
+          vertical: 12,
         ),
-      ),
-      child: Opacity(
-        opacity: enabled ? 1 : 0.6,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accent.withValues(alpha: 0.08)
+              : (highlight ? AppColors.field : null),
+          border: const Border(
+            bottom: BorderSide(color: AppColors.lineSoft, width: 1),
+          ),
+        ),
         child: Row(
           children: [
             Expanded(
@@ -325,32 +326,16 @@ class _OptionRow<T> extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: [
-                        for (final c in option.chips) MetaChip(c),
-                        if (!enabled)
-                          MetaChip(
-                            option.inactiveNote ?? 'Inactive',
-                            background: AppColors.redTint,
-                            foreground: AppColors.redDeep,
-                          ),
-                      ],
+                      children: [for (final c in option.chips) MetaChip(c)],
                     ),
                   ],
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_rounded, size: 20, color: accent),
+            if (isSelected) Icon(Icons.check_rounded, size: 20, color: accent),
           ],
         ),
       ),
-    );
-
-    if (!enabled) return content;
-
-    return InkWell(
-      onTap: () => Navigator.pop(context, option.value),
-      child: content,
     );
   }
 }
