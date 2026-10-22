@@ -31,6 +31,13 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
 
   bool get _canUpdate => AuthService.can('dispatch:status');
 
+  /// Labels may only be changed while the note is Final — the server
+  /// refuses the rest, so the button that takes you there says something
+  /// else until then.
+  bool _canLink(DispatchModel d) =>
+      AuthService.can('dispatch:link') &&
+      d.status.toLowerCase().trim() == 'final';
+
   Future<void> _openUpdateSheet(DispatchModel dispatch) async {
     final shortCases = dispatch.totalQuantity - dispatch.issuedQty;
 
@@ -98,26 +105,8 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
               ),
             ],
           ),
-          actions: [
-            // The sheet behind this sets the vehicle and moves the note
-            // along, both of which the server guards with dispatch:status.
-            if (_canUpdate)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: OutlinedButton(
-                  onPressed: () => _openUpdateSheet(dispatch),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: const Text('Edit'),
-                ),
-              ),
-          ],
+          // The edit control is in the footer, where a thumb is. It was in
+          // both places, two buttons opening one sheet on one screen.
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(58),
             child: _StageRail(status: dispatch.status),
@@ -134,7 +123,11 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
             if (isShort)
               NoticeBanner(
                 title: '${formatCases(short)} still need labels',
-                message: shortLines.length == 1
+                message: dispatch.status.toLowerCase().trim() == 'draft'
+                    ? 'This dispatch is still a draft. Mark it Final once '
+                          'its lines are settled, and the labels can be '
+                          'linked then.'
+                    : shortLines.length == 1
                     ? 'One line is short. This dispatch cannot move to Loaded '
                           'until every line is covered.'
                     : '${shortLines.length} lines are short. This dispatch '
@@ -250,7 +243,7 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
                         child: const Icon(Icons.edit_outlined, size: 21),
                       ),
                     ),
-                  const SizedBox(width: 10),
+                  if (_canUpdate) const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
@@ -266,11 +259,18 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 19),
+                      icon: Icon(
+                        _canLink(dispatch)
+                            ? Icons.qr_code_scanner_rounded
+                            : Icons.list_alt_rounded,
+                        size: 19,
+                      ),
+                      // Offering to link on a draft sends someone to a
+                      // screen that can only tell them no.
                       label: Text(
-                        isShort
+                        isShort && _canLink(dispatch)
                             ? 'Link the missing ${formatQty(short)}'
-                            : 'Review linked labels',
+                            : 'Review the lines',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.amber,

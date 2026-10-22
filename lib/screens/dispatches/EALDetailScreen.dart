@@ -44,7 +44,35 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
 
   /// Linking and unlinking are one permission on the server, so they are
   /// one here: a role that can do neither is offered neither.
-  bool get _canLink => AuthService.can('dispatch:link');
+  bool get _hasLinkPermission => AuthService.can('dispatch:link');
+
+  /// Labels may only be changed while the note is Final — the server
+  /// refuses the rest. A draft's lines can still change, so labels would be
+  /// against numbers that no longer hold; once it is loaded the quantities
+  /// have been checked against the lorry.
+  bool get _stageAllowsLinking =>
+      (_dispatch?.status ?? '').toLowerCase().trim() == 'final';
+
+  bool get _canLink => _hasLinkPermission && _stageAllowsLinking;
+
+  /// Why the buttons are not there, or null when they are. A control that
+  /// is simply missing, or greyed with no reason, is the one people ask
+  /// about.
+  String? get _whyNotLinking {
+    if (!_hasLinkPermission) {
+      return 'Your role does not include linking labels. Ask an '
+          'administrator.';
+    }
+    if (_stageAllowsLinking) return null;
+
+    final stage = (_dispatch?.status ?? '').toLowerCase().trim();
+    if (stage == 'draft') {
+      return 'This dispatch is still a draft. Labels can be linked once it '
+          'is marked Final and its lines are settled.';
+    }
+    return 'This dispatch has already been ${titleCase(stage)}, so its '
+        'labels can no longer be changed.';
+  }
 
   Future<void> _unlink(EALLinkModel link) async {
     final item = _item;
@@ -368,18 +396,38 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                 AppSpace.gutter,
                 12,
               ),
-              child: ElevatedButton.icon(
-                onPressed: _busy || !_canLink ? null : _scanMissing,
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                label: Text(
-                  complete
-                      ? 'Link another range'
-                      : 'Scan the missing ${formatCases(short)}',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.amber,
-                ),
-              ),
+              // Where labels cannot be changed, the reason stands in place
+              // of the button rather than beside a dead one.
+              child: _canLink
+                  ? ElevatedButton.icon(
+                      onPressed: _busy ? null : _scanMissing,
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                      label: Text(
+                        complete
+                            ? 'Link another range'
+                            : 'Scan the missing ${formatCases(short)}',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.amber,
+                      ),
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 18,
+                          color: AppColors.ink500,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            _whyNotLinking ?? '',
+                            style: AppText.small,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),
