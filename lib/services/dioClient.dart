@@ -3,6 +3,7 @@ import 'package:eal_scanner/config/api_config.dart';
 import 'package:eal_scanner/screens/login.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/utils/api_error.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:get/get.dart';
 
 class DioClient {
@@ -44,7 +45,10 @@ class DioClient {
             // The server's own sentence, not Dio's: the API answers a
             // refusal with wording written for this app, and "invalid
             // status code of 403" tells an operator nothing.
-            Get.snackbar('Error', readableDioError(e, 'Something went wrong'));
+            showAppSnackbar(
+              'That did not work',
+              readableDioError(e, 'Something went wrong.'),
+            );
           }
           return handler.next(e);
         },
@@ -67,11 +71,12 @@ class DioClient {
     final said = body is Map ? body['message']?.toString() : null;
 
     Get.offAll(() => const LoginScreen());
-    Get.snackbar(
+    showAppSnackbar(
       'Signed out',
       said != null && said.trim().isNotEmpty
           ? said
           : 'Your session has ended. Sign in again to continue.',
+      level: NoticeLevel.caution,
     );
 
     _ending = false;

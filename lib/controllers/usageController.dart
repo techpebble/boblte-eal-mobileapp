@@ -7,6 +7,7 @@ import 'package:eal_scanner/models/usage.dart';
 import 'package:eal_scanner/models/usage_grouping.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/api_error.dart';
+import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -179,11 +180,17 @@ class UsageController extends GetxController {
             .toList();
       } else {
         isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load companies');
+        showAppSnackbar(
+          'Could not load companies',
+          'The server did not return the company list.',
+        );
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
+      showAppSnackbar(
+        'Could not load that list',
+        readableError(e, 'The server could not be reached.'),
+      );
     } finally {
       isLoading.value = false;
     }
@@ -204,11 +211,17 @@ class UsageController extends GetxController {
             .toList();
       } else {
         isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load Pack Sizes');
+        showAppSnackbar(
+          'Could not load pack sizes',
+          'The server did not return the pack size list.',
+        );
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
+      showAppSnackbar(
+        'Could not load that list',
+        readableError(e, 'The server could not be reached.'),
+      );
     } finally {
       isLoading.value = false;
     }

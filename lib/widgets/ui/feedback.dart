@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:eal_scanner/theme/app_tokens.dart';
 
@@ -436,4 +437,85 @@ class FigureTile extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A snackbar that can be read.
+///
+/// `Get.snackbar` with no colours of its own falls back to grey at a fifth
+/// of full opacity, which is no panel at all: the text floated over
+/// whatever screen was behind it and was all but invisible on this app's
+/// pale canvas. This gives it the surface, border and shadow the rest of
+/// the app's cards have, and says what kind of message it is in the same
+/// colours [NoticeBanner] uses.
+void showAppSnackbar(
+  String title,
+  String message, {
+  NoticeLevel level = NoticeLevel.error,
+  Duration duration = const Duration(seconds: 5),
+}) {
+  final (accent, tint, icon) = switch (level) {
+    NoticeLevel.error => (
+      AppColors.red,
+      AppColors.redTint,
+      Icons.error_outline_rounded,
+    ),
+    NoticeLevel.caution => (
+      AppColors.cautionDeep,
+      AppColors.cautionTint,
+      Icons.warning_amber_rounded,
+    ),
+    NoticeLevel.success => (
+      AppColors.greenDeep,
+      AppColors.greenTint,
+      Icons.check_circle_outline_rounded,
+    ),
+    NoticeLevel.info => (
+      AppColors.indigo,
+      AppColors.indigoTint,
+      Icons.info_outline_rounded,
+    ),
+  };
+
+  Get.snackbar(
+    title,
+    message,
+    backgroundColor: AppColors.surface,
+    colorText: AppColors.ink900,
+    borderColor: accent,
+    borderWidth: 1.5,
+    borderRadius: AppRadius.tile,
+    margin: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+    padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
+    snackPosition: SnackPosition.BOTTOM,
+    duration: duration,
+    boxShadows: const [
+      BoxShadow(color: Color(0x1F0B1220), blurRadius: 18, offset: Offset(0, 6)),
+    ],
+    icon: Container(
+      width: 34,
+      height: 34,
+      margin: const EdgeInsets.only(left: 2),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 19, color: accent),
+    ),
+    titleText: Text(
+      title,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: AppColors.ink900,
+      ),
+    ),
+    messageText: Text(
+      message,
+      style: const TextStyle(
+        fontSize: 13,
+        height: 1.4,
+        color: AppColors.ink700,
+      ),
+    ),
+  );
 }
