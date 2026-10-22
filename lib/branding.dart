@@ -5,7 +5,8 @@ class AppBrand {
   static const logo = 'assets/branding/eal-track.png';
   static const navy = Color(0xFF06235F);
 
-  static const tagline = 'Issuance, production and dispatch for excise '
+  static const tagline =
+      'Issuance, production and dispatch for excise '
       'adhesive labels.';
 
   /// Kept in step with `version:` in pubspec.yaml. Shown on the sign-in and

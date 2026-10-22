@@ -216,9 +216,7 @@ class _HomeBody extends StatelessWidget {
             AppSpace.gutter,
             0,
           ),
-          child: _ScanCallToAction(
-            onTap: () => _showScanDestinations(context),
-          ),
+          child: _ScanCallToAction(onTap: () => _showScanDestinations(context)),
         ),
 
         const SizedBox(height: AppSpace.xl),
@@ -298,9 +296,11 @@ class _HomeBody extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      for (var i = 0;
-                          i < data.recentMovement.length.clamp(0, 5);
-                          i++)
+                      for (
+                        var i = 0;
+                        i < data.recentMovement.length.clamp(0, 5);
+                        i++
+                      )
                         _MovementRow(
                           movement: data.recentMovement[i],
                           isLast:
@@ -343,7 +343,12 @@ class _HomeBody extends StatelessWidget {
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpace.gutter, 0, AppSpace.gutter, AppSpace.lg),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            0,
+            AppSpace.gutter,
+            AppSpace.lg,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

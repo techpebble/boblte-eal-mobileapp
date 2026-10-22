@@ -59,19 +59,21 @@ List<IssuanceGroup> groupIssuances(List<IssuanceModel> rows) {
       byPack.putIfAbsent(row.packName, () => []).add(row);
     }
 
-    final packs = byPack.entries
-        .map(
-          (e) => PackGroup(
-            packName: e.key,
-            rows: e.value
-              ..sort(
-                (a, b) => (int.tryParse(a.serialFrom) ?? 0)
-                    .compareTo(int.tryParse(b.serialFrom) ?? 0),
+    final packs =
+        byPack.entries
+            .map(
+              (e) => PackGroup(
+                packName: e.key,
+                rows: e.value
+                  ..sort(
+                    (a, b) => (int.tryParse(a.serialFrom) ?? 0).compareTo(
+                      int.tryParse(b.serialFrom) ?? 0,
+                    ),
+                  ),
               ),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => compareBySize(a.packName, b.packName));
+            )
+            .toList()
+          ..sort((a, b) => compareBySize(a.packName, b.packName));
 
     groups.add(
       IssuanceGroup(companyName: parts[0], market: parts[1], packs: packs),
@@ -79,8 +81,9 @@ List<IssuanceGroup> groupIssuances(List<IssuanceModel> rows) {
   }
 
   groups.sort((a, b) {
-    final byCompany =
-        a.companyName.toLowerCase().compareTo(b.companyName.toLowerCase());
+    final byCompany = a.companyName.toLowerCase().compareTo(
+      b.companyName.toLowerCase(),
+    );
     if (byCompany != 0) return byCompany;
     return marketRank(a.market).compareTo(marketRank(b.market));
   });

@@ -87,9 +87,7 @@ class _IssuanceFilterSheetState extends State<IssuanceFilterSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpace.gutter,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
               child: Row(
                 children: [
                   const Expanded(child: Text('Filter', style: AppText.title)),

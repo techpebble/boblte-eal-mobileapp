@@ -5,6 +5,7 @@ import 'package:eal_scanner/controllers/dispatchController.dart';
 import 'package:eal_scanner/models/dispatch.dart';
 import 'package:eal_scanner/screens/scan/scan_flow_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_target.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -40,6 +41,10 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
 
   DispatchItemModel? get _item =>
       _dispatch?.items.firstWhereOrNull((i) => i.id == widget.dispatchItemId);
+
+  /// Linking and unlinking are one permission on the server, so they are
+  /// one here: a role that can do neither is offered neither.
+  bool get _canLink => AuthService.can('dispatch:link');
 
   Future<void> _unlink(EALLinkModel link) async {
     final item = _item;
@@ -158,7 +163,8 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
           body: EmptyState(
             icon: Icons.help_outline_rounded,
             title: 'This line is no longer here',
-            message: 'It may have been removed, or the list has moved on. Go '
+            message:
+                'It may have been removed, or the list has moved on. Go '
                 'back and open the dispatch again.',
             accent: AppColors.amber,
             tint: AppColors.amberTint,
@@ -272,13 +278,15 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                     const NoticeBanner(
                       level: NoticeLevel.success,
                       title: 'Fully labelled',
-                      message: 'Every case on this line has a label against '
+                      message:
+                          'Every case on this line has a label against '
                           'it.',
                     )
                   else
                     NoticeBanner(
                       title: '${formatCases(short)} still need labels',
-                      message: 'Link ${formatQty(short * item.bottlesPerCase)} '
+                      message:
+                          'Link ${formatQty(short * item.bottlesPerCase)} '
                           'more labels to balance this line. Scanned labels '
                           'must already be recorded as produced.',
                     ),
@@ -329,7 +337,9 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                         link: item.links[i],
                         bottlesPerCase: item.bottlesPerCase,
                         isLast: i == item.links.length - 1,
-                        onUnlink: _busy ? null : () => _unlink(item.links[i]),
+                        onUnlink: _busy || !_canLink
+                            ? null
+                            : () => _unlink(item.links[i]),
                       ),
                   ],
                 ),
@@ -359,7 +369,7 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                 12,
               ),
               child: ElevatedButton.icon(
-                onPressed: _busy ? null : _scanMissing,
+                onPressed: _busy || !_canLink ? null : _scanMissing,
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
                 label: Text(
                   complete

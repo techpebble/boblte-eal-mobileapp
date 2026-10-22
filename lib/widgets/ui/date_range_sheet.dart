@@ -86,11 +86,7 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
         from: today.subtract(const Duration(days: 6)),
         to: today,
       ),
-      (
-        label: 'This month',
-        from: DateTime(today.year, today.month),
-        to: today,
-      ),
+      (label: 'This month', from: DateTime(today.year, today.month), to: today),
     ];
   }
 
@@ -141,9 +137,7 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpace.gutter,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
               child: Row(
                 children: [
                   const Expanded(child: Text('Dates', style: AppText.title)),
@@ -176,7 +170,8 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                       if (preset != _presets.first) const SizedBox(width: 7),
                       FilterPill(
                         label: preset.label,
-                        selected: _start == preset.from &&
+                        selected:
+                            _start == preset.from &&
                             _resolvedEnd == preset.to &&
                             _end != null,
                         accent: widget.accent,
@@ -216,8 +211,10 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                           icon: Icons.chevron_left_rounded,
                           tooltip: 'Previous month',
                           onPressed: () => setState(
-                            () => _month =
-                                DateTime(_month.year, _month.month - 1),
+                            () => _month = DateTime(
+                              _month.year,
+                              _month.month - 1,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -235,9 +232,11 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                           tooltip: 'Next month',
                           onPressed: _canGoForward
                               ? () => setState(
-                                    () => _month =
-                                        DateTime(_month.year, _month.month + 1),
-                                  )
+                                  () => _month = DateTime(
+                                    _month.year,
+                                    _month.month + 1,
+                                  ),
+                                )
                               : null,
                         ),
                       ],
@@ -257,8 +256,7 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
               ),
             ),
 
-            Padding
-              (
+            Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpace.gutter,
                 AppSpace.lg,
@@ -276,7 +274,7 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                         _start == _resolvedEnd
                             ? formatDayMonthYear(_start)
                             : '${formatDayMonth(_start)} – '
-                                '${formatDayMonthYear(_resolvedEnd)}',
+                                  '${formatDayMonthYear(_resolvedEnd)}',
                         style: AppText.mono(size: 15, weight: FontWeight.w600),
                       ),
                       const SizedBox(width: 7),
@@ -288,10 +286,10 @@ class _DateRangeSheetState extends State<_DateRangeSheet> {
                   ),
                   const SizedBox(height: 11),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      (from: _start, to: _resolvedEnd),
-                    ),
+                    onPressed: () => Navigator.pop(context, (
+                      from: _start,
+                      to: _resolvedEnd,
+                    )),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: widget.accent,
                       minimumSize: const Size.fromHeight(56),
@@ -377,7 +375,8 @@ class _MonthGrid extends StatelessWidget {
     final rows = <Widget>[];
     for (var day = 1; day <= daysInMonth; day++) {
       final date = DateTime(month.year, month.month, day);
-      final beyond = lastAllowed != null &&
+      final beyond =
+          lastAllowed != null &&
           date.isAfter(
             DateTime(lastAllowed!.year, lastAllowed!.month, lastAllowed!.day),
           );
@@ -474,14 +473,17 @@ class _DayCell extends StatelessWidget {
             color: edge
                 ? accent
                 : inside
-                    ? accent.withValues(alpha: 0.12)
-                    : Colors.transparent,
+                ? accent.withValues(alpha: 0.12)
+                : Colors.transparent,
             shape: inside
                 ? const RoundedRectangleBorder()
                 : RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                     side: isToday && !edge
-                        ? const BorderSide(color: AppColors.lineField, width: 1.5)
+                        ? const BorderSide(
+                            color: AppColors.lineField,
+                            width: 1.5,
+                          )
                         : BorderSide.none,
                   ),
             child: InkWell(
@@ -496,10 +498,10 @@ class _DayCell extends StatelessWidget {
                     color: disabled
                         ? AppColors.ink400
                         : edge
-                            ? Colors.white
-                            : inside
-                                ? AppColors.indigoDeep
-                                : AppColors.ink700,
+                        ? Colors.white
+                        : inside
+                        ? AppColors.indigoDeep
+                        : AppColors.ink700,
                   ),
                 ),
               ),

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import 'package:eal_scanner/controllers/issuanceController.dart';
 import 'package:eal_scanner/models/issuance.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -62,41 +63,46 @@ class _EALIssuanceDetailScreenState extends State<EALIssuanceDetailScreen> {
           ],
         ),
         actions: [
-          PopupMenuButton<String>(
-            enabled: !_busy,
-            tooltip: 'More options',
-            onSelected: (_) => _confirmRemove(),
-            itemBuilder: (_) => [
-              PopupMenuItem<String>(
-                value: 'remove',
-                // Listed either way: an option that vanishes leaves people
-                // hunting for it. Disabled, it says why instead.
-                enabled: _untouched,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Remove issuance',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: _untouched ? AppColors.red : AppColors.ink500,
-                      ),
-                    ),
-                    if (!_untouched)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '${formatQty(_used)} labels already used',
-                          style: AppText.micro,
+          // A record that was used is still listed and disabled, with the
+          // reason — that is a state, and an option that vanishes leaves
+          // people hunting. A role without the power to remove anything is
+          // not a state, so for it the menu is not there at all.
+          if (AuthService.can('issuance:delete'))
+            PopupMenuButton<String>(
+              enabled: !_busy,
+              tooltip: 'More options',
+              onSelected: (_) => _confirmRemove(),
+              itemBuilder: (_) => [
+                PopupMenuItem<String>(
+                  value: 'remove',
+                  // Listed either way: an option that vanishes leaves people
+                  // hunting for it. Disabled, it says why instead.
+                  enabled: _untouched,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Remove issuance',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: _untouched ? AppColors.red : AppColors.ink500,
                         ),
                       ),
-                  ],
+                      if (!_untouched)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '${formatQty(_used)} labels already used',
+                            style: AppText.micro,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
       body: ListView(
@@ -135,11 +141,7 @@ class _EALIssuanceDetailScreenState extends State<EALIssuanceDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 13),
-                SerialRangeBlock(
-                  prefix: issuance.prefix,
-                  from: _from,
-                  to: _to,
-                ),
+                SerialRangeBlock(prefix: issuance.prefix, from: _from, to: _to),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: AppSpace.lg),
@@ -312,8 +314,9 @@ class _EALIssuanceDetailScreenState extends State<EALIssuanceDetailScreen> {
       _error = '';
     });
 
-    final error =
-        await Get.find<Issuancecontroller>().deleteEALIssuance(issuance.id);
+    final error = await Get.find<Issuancecontroller>().deleteEALIssuance(
+      issuance.id,
+    );
 
     if (!mounted) return;
 

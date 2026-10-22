@@ -49,13 +49,14 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
               countLabel: _controller.isLoading.value
                   ? null
                   : '${_controller.dispatches.length} '
-                      '${_controller.dispatches.length == 1 ? 'note' : 'notes'}',
+                        '${_controller.dispatches.length == 1 ? 'note' : 'notes'}',
               searchHint: 'Depot, vehicle or driver',
               onSearchChanged: (v) => _controller.searchQuery.value = v,
               dateLabel: formatDayMonth(_controller.selectedDate.value),
               onPickDate: _controller.pickDate,
               accent: AppColors.amber,
-              showProgress: _controller.isLoading.value &&
+              showProgress:
+                  _controller.isLoading.value &&
                   _controller.dispatches.isNotEmpty,
             ),
           ),
@@ -110,14 +111,16 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
       });
 
     if (rows.isEmpty) {
-      final filtering = _controller.searchQuery.value.trim().isNotEmpty ||
+      final filtering =
+          _controller.searchQuery.value.trim().isNotEmpty ||
           _controller.statusFilter.value.isNotEmpty;
 
       if (filtering) {
         return EmptyState(
           icon: Icons.filter_alt_off_outlined,
           title: 'Nothing matches those filters',
-          message: 'Clear the status filter or the search to see the whole '
+          message:
+              'Clear the status filter or the search to see the whole '
               'day again.',
           accent: AppColors.amber,
           tint: AppColors.amberTint,
@@ -131,15 +134,16 @@ class _DispatchListScreenState extends State<DispatchListScreen> {
 
       return EmptyState(
         icon: Icons.local_shipping_outlined,
-        title: 'No dispatches on '
+        title:
+            'No dispatches on '
             '${formatDayMonthYear(_controller.selectedDate.value)}',
-        message: 'Dispatch notes are raised in the back office. Widen the '
+        message:
+            'Dispatch notes are raised in the back office. Widen the '
             'range if you are looking for an earlier one.',
         accent: AppColors.amber,
         tint: AppColors.amberTint,
         primaryLabel: 'Show the last 7 days',
-        onPrimary: () =>
-            _controller.setRange(endDate: DateTime.now(), days: 7),
+        onPrimary: () => _controller.setRange(endDate: DateTime.now(), days: 7),
       );
     }
 

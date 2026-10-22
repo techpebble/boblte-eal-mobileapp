@@ -429,7 +429,13 @@ class _ReticleOverlay extends StatelessWidget {
 
         return Stack(
           children: [
-            Positioned(left: 0, right: 0, top: 0, height: box.top, child: ColoredBox(color: dim)),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: box.top,
+              child: ColoredBox(color: dim),
+            ),
             Positioned(
               left: 0,
               right: 0,
@@ -551,10 +557,12 @@ class _Corner extends StatelessWidget {
             borderRadius: BorderRadius.only(
               topLeft: top && left ? const Radius.circular(16) : Radius.zero,
               topRight: top && !left ? const Radius.circular(16) : Radius.zero,
-              bottomLeft:
-                  !top && left ? const Radius.circular(16) : Radius.zero,
-              bottomRight:
-                  !top && !left ? const Radius.circular(16) : Radius.zero,
+              bottomLeft: !top && left
+                  ? const Radius.circular(16)
+                  : Radius.zero,
+              bottomRight: !top && !left
+                  ? const Radius.circular(16)
+                  : Radius.zero,
             ),
           ),
         ),

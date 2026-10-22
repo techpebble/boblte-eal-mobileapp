@@ -21,6 +21,18 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // The role is cached from the sign-in and a token lasts a year, so an
+    // admin changing it would otherwise never show here. Re-read on the way
+    // in, which is also what decides the tabs on the next start.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AuthService.refreshUser();
+      if (mounted) setState(() {});
+    });
+  }
+
   late bool _torch = SettingsService.torchByDefault;
   late bool _feedback = SettingsService.scanFeedback;
   late String _prefix = SettingsService.defaultPrefix;
@@ -40,21 +52,24 @@ class _AccountScreenState extends State<AccountScreen> {
         .toList();
     if (parts.isEmpty) return 'EA';
     if (parts.length == 1) {
-      return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
+      return parts.first
+          .substring(0, parts.first.length >= 2 ? 2 : 1)
+          .toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   String get _subtitle {
-    final role = _user['role']?.toString().trim() ?? '';
+    // Through AuthService, which knows both shapes. Read straight off the
+    // map this printed the whole role record — id, permission list and all
+    // — because the server populates the role rather than sending a word.
+    final role = AuthService.roleName;
     final email = _user['email']?.toString().trim() ?? '';
-    final roleLabel = role.isEmpty
-        ? null
-        : role[0].toUpperCase() + role.substring(1).toLowerCase();
 
-    return [roleLabel, email.isEmpty ? null : email]
-        .whereType<String>()
-        .join(' · ');
+    return [
+      role.isEmpty ? null : role,
+      email.isEmpty ? null : email,
+    ].whereType<String>().join(' · ');
   }
 
   @override
@@ -172,8 +187,9 @@ class _AccountScreenState extends State<AccountScreen> {
                   icon: offline ? Icons.wifi_off_rounded : Icons.wifi_rounded,
                   label: 'Server connection',
                   value: offline ? 'No connection' : 'Online',
-                  valueColor:
-                      offline ? AppColors.cautionDeep : AppColors.greenDeep,
+                  valueColor: offline
+                      ? AppColors.cautionDeep
+                      : AppColors.greenDeep,
                   dotColor: offline ? AppColors.caution : AppColors.green,
                 );
               }),
@@ -263,11 +279,10 @@ class _AccountScreenState extends State<AccountScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(field.text.trim().toUpperCase()),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(0, 44),
-            ),
+            onPressed: () => Navigator.of(
+              dialogContext,
+            ).pop(field.text.trim().toUpperCase()),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
             child: const Text('Save'),
           ),
         ],
@@ -409,11 +424,7 @@ class _Group extends StatelessWidget {
 }
 
 class _RowShell extends StatelessWidget {
-  const _RowShell({
-    required this.child,
-    this.onTap,
-    this.isLast = false,
-  });
+  const _RowShell({required this.child, this.onTap, this.isLast = false});
 
   final Widget child;
   final VoidCallback? onTap;

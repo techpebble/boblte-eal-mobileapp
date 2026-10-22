@@ -25,8 +25,7 @@ class DispatchController extends GetxController {
 
   /// A note is short while its linked case count is below its total. Matches
   /// the tolerance the backend uses when moving `final` to `loaded`.
-  bool isShortOfLabels(DispatchModel d) =>
-      d.issuedQty + 1e-6 < d.totalQuantity;
+  bool isShortOfLabels(DispatchModel d) => d.issuedQty + 1e-6 < d.totalQuantity;
 
   int get shortCount => dispatches.where(isShortOfLabels).length;
 
@@ -81,8 +80,9 @@ class DispatchController extends GetxController {
     errorMessage.value = '';
 
     final end = selectedDate.value;
-    final start =
-        end.subtract(Duration(days: (rangeDays.value - 1).clamp(0, 365)));
+    final start = end.subtract(
+      Duration(days: (rangeDays.value - 1).clamp(0, 365)),
+    );
     final formatter = DateFormat('yyyy-MM-dd');
     final url =
         'dispatch?startDate=${formatter.format(start)}&endDate=${formatter.format(end)}';
@@ -154,7 +154,10 @@ class DispatchController extends GetxController {
         return null;
       }
 
-      return readableResponseError(res, 'The server would not link this range.');
+      return readableResponseError(
+        res,
+        'The server would not link this range.',
+      );
     } on DioException catch (e) {
       return readableDioError(e, 'Could not link this range.');
     } catch (_) {

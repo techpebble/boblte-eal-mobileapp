@@ -64,8 +64,7 @@ class ConnectionLostView extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                   : const Icon(Icons.refresh_rounded, size: 19),
@@ -89,9 +88,7 @@ class ConnectionLostView extends StatelessWidget {
                       children: [
                         Icon(check.icon, size: 18, color: AppColors.ink500),
                         const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(check.text, style: AppText.small),
-                        ),
+                        Expanded(child: Text(check.text, style: AppText.small)),
                       ],
                     ),
                   ),
@@ -116,7 +113,7 @@ class ConnectionLostView extends StatelessWidget {
     _Check(
       Icons.wifi_rounded,
       'Plant Wi-Fi reaches the bottling hall but not every corner of the '
-          'store — step back towards the doorway.',
+      'store — step back towards the doorway.',
     ),
     _Check(
       Icons.smartphone_rounded,
@@ -125,7 +122,7 @@ class ConnectionLostView extends StatelessWidget {
     _Check(
       Icons.edit_note_rounded,
       'Write the serial range on the day sheet and enter it by hand once you '
-          'are back on the network.',
+      'are back on the network.',
     ),
   ];
 }

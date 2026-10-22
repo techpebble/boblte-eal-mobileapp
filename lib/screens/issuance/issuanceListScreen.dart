@@ -7,6 +7,7 @@ import 'package:eal_scanner/models/issuance_grouping.dart';
 import 'package:eal_scanner/screens/issuance/issuance_filter_sheet.dart';
 import 'package:eal_scanner/screens/issuance/issuanceDetailScreen.dart';
 import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -60,6 +61,8 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
       }
     });
   }
+
+  bool get _canRecord => AuthService.can('issuance:create');
 
   Future<void> _addStickers() => showStickerDetailsSheetForNext(context);
 
@@ -146,15 +149,20 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
           Expanded(child: Obx(_buildBody)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addStickers,
-        backgroundColor: AppColors.indigo,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        shape: const CircleBorder(),
-        tooltip: 'New issuance',
-        child: const Icon(Icons.add_rounded, size: 26),
-      ),
+      // A role that may read the list but not add to it is not offered the
+      // button: the server would refuse the record after a whole range had
+      // been scanned, which is the worst moment to find out.
+      floatingActionButton: _canRecord
+          ? FloatingActionButton(
+              onPressed: _addStickers,
+              backgroundColor: AppColors.indigo,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              tooltip: 'New issuance',
+              child: const Icon(Icons.add_rounded, size: 26),
+            )
+          : null,
     );
   }
 
@@ -214,8 +222,8 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
         tint: AppColors.indigoTint,
         primaryLabel: 'Show the last 7 days',
         onPrimary: () => _reload(() => _controller.setLastDays(7)),
-        secondaryLabel: 'Record a new issuance',
-        onSecondary: _addStickers,
+        secondaryLabel: _canRecord ? 'Record a new issuance' : null,
+        onSecondary: _canRecord ? _addStickers : null,
       );
     }
 

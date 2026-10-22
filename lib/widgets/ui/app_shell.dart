@@ -5,6 +5,7 @@ import 'package:eal_scanner/screens/dispatches/dispatchListScreen.dart';
 import 'package:eal_scanner/screens/homeScreen.dart';
 import 'package:eal_scanner/screens/issuance/issuanceListScreen.dart';
 import 'package:eal_scanner/screens/usages/usagesListScreen.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 
 /// The app's navigation spine.
@@ -23,49 +24,85 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  late int _index = widget.initialIndex;
+  late int _index = widget.initialIndex.clamp(0, _tabs.length - 1);
 
-  static const _tabs = <_TabSpec>[
-    _TabSpec('Home', Icons.home_outlined, Icons.home_rounded, AppColors.blue),
-    _TabSpec(
+  /// The tabs this account can actually use.
+  ///
+  /// Every one of them opens by asking the server for a list, and the server
+  /// refuses where the role does not allow it. A tab that can only ever show
+  /// a refusal is worse than no tab: it reads as something broken rather
+  /// than something this account does not do. The permission each one needs
+  /// is the one its own route asks for, and the server accepts any of
+  /// several keys for the same list, so these do too.
+  static final List<_TabSpec> _tabs = [
+    const _TabSpec(
+      'Home',
+      Icons.home_outlined,
+      Icons.home_rounded,
+      AppColors.blue,
+      needs: ['dashboard:view'],
+    ),
+    const _TabSpec(
       'Issuance',
       Icons.assignment_turned_in_outlined,
       Icons.assignment_turned_in_rounded,
       AppColors.indigo,
+      needs: ['issuance:view', 'stock:view'],
     ),
-    _TabSpec(
+    const _TabSpec(
       'Production',
       Icons.factory_outlined,
       Icons.factory_rounded,
       AppColors.teal,
+      needs: ['usage:view', 'finished:view'],
     ),
-    _TabSpec(
+    const _TabSpec(
       'Dispatch',
       Icons.local_shipping_outlined,
       Icons.local_shipping_rounded,
       AppColors.amber,
+      needs: ['dispatch:view'],
     ),
-    _TabSpec(
+    // Settings and the sign-out. Nothing on it asks the server for anything
+    // the role could be refused, so it is always there.
+    const _TabSpec(
       'Account',
       Icons.person_outline_rounded,
       Icons.person_rounded,
       AppColors.blue,
+      needs: [],
     ),
   ];
 
+  static Widget _screenFor(String label) {
+    switch (label) {
+      case 'Home':
+        return const HomeScreen();
+      case 'Issuance':
+        return const IssuanceListScreen();
+      case 'Production':
+        return const UsagesListScreen();
+      case 'Dispatch':
+        return const DispatchListScreen();
+      default:
+        return const AccountScreen();
+    }
+  }
+
+  List<_TabSpec> get _allowed => _tabs
+      .where((t) => t.needs.isEmpty || AuthService.canAny(t.needs))
+      .toList();
+
   @override
   Widget build(BuildContext context) {
+    final tabs = _allowed;
+    final index = _index.clamp(0, tabs.length - 1);
+
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: IndexedStack(
-        index: _index,
-        children: const [
-          HomeScreen(),
-          IssuanceListScreen(),
-          UsagesListScreen(),
-          DispatchListScreen(),
-          AccountScreen(),
-        ],
+        index: index,
+        children: [for (final tab in tabs) _screenFor(tab.label)],
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -78,11 +115,11 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
             child: Row(
               children: [
-                for (var i = 0; i < _tabs.length; i++)
+                for (var i = 0; i < tabs.length; i++)
                   Expanded(
                     child: _TabButton(
-                      spec: _tabs[i],
-                      selected: _index == i,
+                      spec: tabs[i],
+                      selected: index == i,
                       onTap: () => setState(() => _index = i),
                     ),
                   ),
@@ -96,12 +133,21 @@ class _AppShellState extends State<AppShell> {
 }
 
 class _TabSpec {
-  const _TabSpec(this.label, this.icon, this.activeIcon, this.accent);
+  const _TabSpec(
+    this.label,
+    this.icon,
+    this.activeIcon,
+    this.accent, {
+    required this.needs,
+  });
 
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final Color accent;
+
+  /// Any one of these is enough, as on the route this tab's list calls.
+  final List<String> needs;
 }
 
 class _TabButton extends StatelessWidget {
@@ -135,7 +181,11 @@ class _TabButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(selected ? spec.activeIcon : spec.icon, size: 22, color: color),
+              Icon(
+                selected ? spec.activeIcon : spec.icon,
+                size: 22,
+                color: color,
+              ),
               const SizedBox(height: 4),
               Text(
                 spec.label,

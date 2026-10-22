@@ -154,8 +154,10 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
         builder: (context, constraints) {
           // The keypad takes a fixed share of the height so the keys stay
           // reachable on a small phone without ever overflowing.
-          final keyHeight =
-              ((constraints.maxHeight * 0.55 - 27) / 4).clamp(44.0, 58.0);
+          final keyHeight = ((constraints.maxHeight * 0.55 - 27) / 4).clamp(
+            44.0,
+            58.0,
+          );
 
           return Column(
             children: [
@@ -268,8 +270,9 @@ class _ManualSerialScreenState extends State<ManualSerialScreen> {
                   onPressed: _canSubmit
                       ? () => Navigator.pop(context, _recorded)
                       : null,
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: widget.accent),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.accent,
+                  ),
                   child: const Text('Use this serial'),
                 ),
                 const SizedBox(height: 9),
@@ -310,17 +313,17 @@ class _SerialDisplay extends StatelessWidget {
     );
 
     return Semantics(
-      label: digits.isEmpty
-          ? 'No digits entered'
-          : 'Serial $padding$digits',
+      label: digits.isEmpty ? 'No digits entered' : 'Serial $padding$digits',
       child: Container(
         height: 64,
         padding: const EdgeInsets.only(left: 16, right: 6),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppRadius.tile),
-          border: Border.all(color: digits.isEmpty ? AppColors.line : accent,
-              width: digits.isEmpty ? 1 : 2),
+          border: Border.all(
+            color: digits.isEmpty ? AppColors.line : accent,
+            width: digits.isEmpty ? 1 : 2,
+          ),
         ),
         child: Row(
           children: [
@@ -377,7 +380,8 @@ class _Feedback extends StatelessWidget {
     if (backwards) {
       return const NoticeBanner(
         title: 'The ends are the wrong way round',
-        message: 'This serial sits before the other end of the range. Check '
+        message:
+            'This serial sits before the other end of the range. Check '
             'the digits against the label.',
       );
     }
@@ -386,7 +390,8 @@ class _Feedback extends StatelessWidget {
       final labels = this.labels!;
       return NoticeBanner(
         title: 'Not a whole number of cases',
-        message: '${labels % bottlesPerCase} labels over '
+        message:
+            '${labels % bottlesPerCase} labels over '
             '${formatQty(labels ~/ bottlesPerCase)}. Check the serial — this '
             'range cannot be recorded.',
       );
@@ -436,7 +441,8 @@ class _Feedback extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Figure(value: formatQty(labels), label: 'labels'),
-              if (cases != null) _Figure(value: formatQty(cases), label: 'cases'),
+              if (cases != null)
+                _Figure(value: formatQty(cases), label: 'cases'),
             ],
           ),
         ],
@@ -462,25 +468,22 @@ class _Keypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget row(List<Widget> keys) => Padding(
-          padding: const EdgeInsets.only(bottom: 9),
-          child: Row(
-            children: [
-              for (var i = 0; i < keys.length; i++) ...[
-                if (i > 0) const SizedBox(width: 9),
-                Expanded(child: keys[i]),
-              ],
-            ],
-          ),
-        );
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        children: [
+          for (var i = 0; i < keys.length; i++) ...[
+            if (i > 0) const SizedBox(width: 9),
+            Expanded(child: keys[i]),
+          ],
+        ],
+      ),
+    );
 
     Widget digit(String d) => _Key(
-          height: keyHeight,
-          onPressed: () => onDigit(d),
-          child: Text(
-            d,
-            style: AppText.mono(size: 23, weight: FontWeight.w600),
-          ),
-        );
+      height: keyHeight,
+      onPressed: () => onDigit(d),
+      child: Text(d, style: AppText.mono(size: 23, weight: FontWeight.w600)),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,

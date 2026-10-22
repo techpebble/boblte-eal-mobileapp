@@ -127,7 +127,10 @@ class ListScreenHeader extends StatelessWidget {
                       const SizedBox(width: 9),
                       OutlinedButton.icon(
                         onPressed: onPickDate,
-                        icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                        icon: const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 16,
+                        ),
                         label: Text(dateLabel),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),

@@ -19,6 +19,7 @@ class Issuancecontroller extends GetxController {
   RxList<Item> items = <Item>[].obs;
   RxList<Company> companies = <Company>[].obs;
   RxList<PackSize> packs = <PackSize>[].obs;
+
   /// What the last entry was recorded against, so the next sheet can start
   /// from it instead of asking the same three questions again. A purchase is
   /// usually several sets from one company on one day.
@@ -54,10 +55,10 @@ class Issuancecontroller extends GetxController {
   List<IssuanceGroup> get groupedIssuance => groupIssuances(filteredIssuance);
 
   int get activeFilterCount => [
-        filterCompany.value,
-        filterMarket.value,
-        filterPack.value,
-      ].where((f) => f.isNotEmpty).length;
+    filterCompany.value,
+    filterMarket.value,
+    filterPack.value,
+  ].where((f) => f.isNotEmpty).length;
 
   bool get hasFilters => activeFilterCount > 0;
 
@@ -161,7 +162,10 @@ class Issuancecontroller extends GetxController {
         errorMessage.value = 'Could not load issuance records.';
       }
     } on DioException catch (e) {
-      errorMessage.value = readableDioError(e, 'Could not load issuance records.');
+      errorMessage.value = readableDioError(
+        e,
+        'Could not load issuance records.',
+      );
     } catch (_) {
       errorMessage.value = 'Could not load issuance records.';
     } finally {
@@ -174,7 +178,10 @@ class Issuancecontroller extends GetxController {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('companies');
+      final res = await dio.get(
+        'companies',
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         companies.value = (res.data['data'] as List)
             .map((e) => Company.fromJson(e))
@@ -185,7 +192,7 @@ class Issuancecontroller extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
     } finally {
       isLoading.value = false;
     }
@@ -196,7 +203,10 @@ class Issuancecontroller extends GetxController {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('packs');
+      final res = await dio.get(
+        'packs',
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         packs.value = (res.data['data'] as List)
             .map((e) => PackSize.fromJson(e))
@@ -207,7 +217,7 @@ class Issuancecontroller extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
     } finally {
       isLoading.value = false;
     }

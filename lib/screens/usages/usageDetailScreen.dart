@@ -31,7 +31,6 @@ class EALUsageDetailScreen extends StatelessWidget {
   bool get _allDispatched => _waitingCases <= 0;
   bool get _noneDispatched => _dispatchedCases <= 0;
 
-
   @override
   Widget build(BuildContext context) {
     final ranges = usage.usedSerialRanges;
@@ -170,10 +169,7 @@ class EALUsageDetailScreen extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        'Waiting for dispatch',
-                        style: AppText.small,
-                      ),
+                      child: Text('Waiting for dispatch', style: AppText.small),
                     ),
                     Text(
                       formatCases(_waitingCases),
@@ -250,7 +246,7 @@ class EALUsageDetailScreen extends StatelessWidget {
               child: Text(
                 _allDispatched
                     ? 'It has all gone out, but the ranges were not recorded '
-                        'against this entry.'
+                          'against this entry.'
                     : 'Nothing from this run has gone out on a dispatch yet.',
                 style: AppText.small,
               ),
@@ -316,7 +312,6 @@ class EALUsageDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-
         ],
       ),
     );
@@ -347,11 +342,10 @@ class _MetaRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 96,
-            child: Text(label, style: AppText.small),
+          SizedBox(width: 96, child: Text(label, style: AppText.small)),
+          Expanded(
+            child: Align(alignment: Alignment.centerLeft, child: child),
           ),
-          Expanded(child: Align(alignment: Alignment.centerLeft, child: child)),
         ],
       ),
     );

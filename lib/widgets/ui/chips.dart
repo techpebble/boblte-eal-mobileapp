@@ -22,7 +22,11 @@ int dispatchStageIndex(String status) {
 ({Color bg, Color fg, Color dot}) dispatchStageColors(String status) {
   switch (status.toLowerCase().trim()) {
     case 'final':
-      return (bg: AppColors.blueTint, fg: AppColors.blueDeep, dot: AppColors.blue);
+      return (
+        bg: AppColors.blueTint,
+        fg: AppColors.blueDeep,
+        dot: AppColors.blue,
+      );
     case 'loaded':
       return (
         bg: AppColors.indigoTint,
@@ -43,7 +47,11 @@ int dispatchStageIndex(String status) {
       );
     case 'draft':
     default:
-      return (bg: AppColors.sunken, fg: AppColors.ink700, dot: AppColors.ink500);
+      return (
+        bg: AppColors.sunken,
+        fg: AppColors.ink700,
+        dot: AppColors.ink500,
+      );
   }
 }
 

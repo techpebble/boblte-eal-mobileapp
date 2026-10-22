@@ -54,3 +54,33 @@ String readableResponseError(Response<dynamic>? response, String fallback) {
   }
   return fallback;
 }
+
+/// The same, for a `catch (e)` that has not narrowed the type. Anything
+/// that is not a Dio failure gets [fallback] rather than its toString, which
+/// on a DioException runs to the request options and a stack trace.
+String readableError(Object error, String fallback) {
+  if (error is DioException) return readableDioError(error, fallback);
+  return fallback;
+}
+
+/// Whether a failure means the session itself is finished, rather than this
+/// one action being refused.
+///
+/// A 401 is a token the server will not take — expired, malformed, or
+/// belonging to a user that no longer exists. A 403 from the sign-in guard
+/// means the account has been switched off. Neither can be recovered from
+/// inside the app, so both end the session.
+///
+/// A 403 from the permission guard is a different thing: the role is fine,
+/// this one action is not allowed, and the screen says so itself. The server
+/// marks those by naming the permission it wanted, which is how the two are
+/// told apart.
+bool endsTheSession(DioException error) {
+  final status = error.response?.statusCode;
+  if (status == 401) return true;
+  if (status != 403) return false;
+
+  final body = error.response?.data;
+  final refusedOneAction = body is Map && body['required'] != null;
+  return !refusedOneAction;
+}

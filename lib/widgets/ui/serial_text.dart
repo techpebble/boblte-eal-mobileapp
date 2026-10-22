@@ -38,7 +38,10 @@ class SerialPrefixChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: size * 0.6, vertical: size * 0.25),
+      padding: EdgeInsets.symmetric(
+        horizontal: size * 0.6,
+        vertical: size * 0.25,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.navy,
         borderRadius: BorderRadius.all(Radius.circular(5)),

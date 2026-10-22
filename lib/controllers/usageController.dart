@@ -162,7 +162,10 @@ class UsageController extends GetxController {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('companies');
+      final res = await dio.get(
+        'companies',
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         companies.value = (res.data['data'] as List)
             .map((e) => Company.fromJson(e))
@@ -173,7 +176,7 @@ class UsageController extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
     } finally {
       isLoading.value = false;
     }
@@ -184,7 +187,10 @@ class UsageController extends GetxController {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('packs');
+      final res = await dio.get(
+        'packs',
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         packs.value = (res.data['data'] as List)
             .map((e) => PackSize.fromJson(e))
@@ -195,7 +201,7 @@ class UsageController extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
     } finally {
       isLoading.value = false;
     }
@@ -206,7 +212,11 @@ class UsageController extends GetxController {
       isLoading.value = true;
       final Dio dio = DioClient().dio;
 
-      final res = await dio.get('items', queryParameters: {'isActive': 'true'});
+      final res = await dio.get(
+        'items',
+        queryParameters: {'isActive': 'true'},
+        options: Options(extra: const {'silent': true}),
+      );
       if (res.statusCode == 200) {
         items.value = (res.data['data'] as List)
             .map((e) => Item.fromJson(e))
@@ -222,7 +232,7 @@ class UsageController extends GetxController {
     } catch (e) {
       items.clear();
       isLoading.value = false;
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
       return false;
     } finally {
       isLoading.value = false;

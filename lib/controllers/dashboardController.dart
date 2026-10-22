@@ -25,10 +25,10 @@ class DashboardController extends GetxController {
   static final DateFormat _apiDate = DateFormat('yyyy-MM-dd');
 
   String get periodLabel => switch (period.value) {
-        DashboardPeriod.today => 'Today',
-        DashboardPeriod.week => 'Last 7 days',
-        DashboardPeriod.month => 'This month',
-      };
+    DashboardPeriod.today => 'Today',
+    DashboardPeriod.week => 'Last 7 days',
+    DashboardPeriod.month => 'This month',
+  };
 
   String get lastUpdatedLabel {
     final at = lastUpdated.value;
@@ -43,13 +43,13 @@ class DashboardController extends GetxController {
     return switch (period.value) {
       DashboardPeriod.today => (start: today, end: today),
       DashboardPeriod.week => (
-          start: today.subtract(const Duration(days: 6)),
-          end: today,
-        ),
+        start: today.subtract(const Duration(days: 6)),
+        end: today,
+      ),
       DashboardPeriod.month => (
-          start: DateTime(now.year, now.month, 1),
-          end: today,
-        ),
+        start: DateTime(now.year, now.month, 1),
+        end: today,
+      ),
     };
   }
 

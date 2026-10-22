@@ -7,6 +7,7 @@ import 'package:eal_scanner/models/usage_grouping.dart';
 import 'package:eal_scanner/screens/usages/EALStickerScreen.dart';
 import 'package:eal_scanner/screens/usages/production_filter_sheet.dart';
 import 'package:eal_scanner/screens/usages/usageDetailScreen.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -63,6 +64,8 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
       }
     });
   }
+
+  bool get _canRecord => AuthService.can('usage:create');
 
   void _newEntry() => Get.to(() => EALStickerScreen());
 
@@ -149,15 +152,19 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
           Expanded(child: Obx(_buildBody)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _newEntry,
-        backgroundColor: AppColors.teal,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        shape: const CircleBorder(),
-        tooltip: 'New production entry',
-        child: const Icon(Icons.add_rounded, size: 26),
-      ),
+      // Storekeeper and Dispatch may read this list but not record on it,
+      // so they are not offered the button.
+      floatingActionButton: _canRecord
+          ? FloatingActionButton(
+              onPressed: _newEntry,
+              backgroundColor: AppColors.teal,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              tooltip: 'New production entry',
+              child: const Icon(Icons.add_rounded, size: 26),
+            )
+          : null,
     );
   }
 
@@ -217,8 +224,8 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
         tint: AppColors.tealTint,
         primaryLabel: 'Show the last 7 days',
         onPrimary: () => _reload(() => _controller.setLastDays(7)),
-        secondaryLabel: 'Record a production entry',
-        onSecondary: _newEntry,
+        secondaryLabel: _canRecord ? 'Record a production entry' : null,
+        onSecondary: _canRecord ? _newEntry : null,
       );
     }
 

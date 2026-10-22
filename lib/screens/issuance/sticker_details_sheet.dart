@@ -154,7 +154,8 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
           target: ScanTarget(
             module: AppModule.issuance,
             title: 'Record issuance',
-            contextLine: '${pack.name} · ${titleCase(_market)} · '
+            contextLine:
+                '${pack.name} · ${titleCase(_market)} · '
                 '${company.name}',
             bottlesPerCase: pack.bottlesPerCase,
             unit: ScanUnit.labels,
@@ -199,7 +200,8 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
   Widget build(BuildContext context) {
     final pack = _pack;
     final today = DateTime.now();
-    final isToday = _date.year == today.year &&
+    final isToday =
+        _date.year == today.year &&
         _date.month == today.month &&
         _date.day == today.day;
 
@@ -212,9 +214,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpace.gutter,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
               child: Row(
                 children: [
                   const Expanded(
@@ -282,7 +282,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                             value: pack == null
                                 ? null
                                 : '${pack.name} · '
-                                    '${pack.bottlesPerCase} per case',
+                                      '${pack.bottlesPerCase} per case',
                             icon: Icons.inventory_2_outlined,
                             onTap: _pickPack,
                           ),
@@ -296,8 +296,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                                 MarketToggle(
                                   value: _market,
                                   accent: AppColors.indigo,
-                                  onChanged: (v) =>
-                                      setState(() => _market = v),
+                                  onChanged: (v) => setState(() => _market = v),
                                 ),
                               ],
                             ),

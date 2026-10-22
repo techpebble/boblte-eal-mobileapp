@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:eal_scanner/controllers/dispatchController.dart';
 import 'package:eal_scanner/models/dispatch.dart';
 import 'package:eal_scanner/screens/dispatches/EALDetailScreen.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -27,6 +28,8 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
 
   DispatchModel? get _dispatch =>
       _controller.dispatches.firstWhereOrNull((d) => d.id == widget.dispatchId);
+
+  bool get _canUpdate => AuthService.can('dispatch:status');
 
   Future<void> _openUpdateSheet(DispatchModel dispatch) async {
     final shortCases = dispatch.totalQuantity - dispatch.issuedQty;
@@ -59,7 +62,8 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
           body: EmptyState(
             icon: Icons.help_outline_rounded,
             title: 'This dispatch is no longer here',
-            message: 'It may have been removed, or the day has moved on. Go '
+            message:
+                'It may have been removed, or the day has moved on. Go '
                 'back and refresh the list.',
             accent: AppColors.amber,
             tint: AppColors.amberTint,
@@ -71,8 +75,9 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
 
       final short = dispatch.totalQuantity - dispatch.issuedQty;
       final isShort = short > 0;
-      final shortLines =
-          dispatch.items.where((i) => i.issuedQty < i.quantityInCases).toList();
+      final shortLines = dispatch.items
+          .where((i) => i.issuedQty < i.quantityInCases)
+          .toList();
 
       return Scaffold(
         backgroundColor: AppColors.canvas,
@@ -94,21 +99,24 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
             ],
           ),
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: OutlinedButton(
-                onPressed: () => _openUpdateSheet(dispatch),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 38),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+            // The sheet behind this sets the vehicle and moves the note
+            // along, both of which the server guards with dispatch:status.
+            if (_canUpdate)
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: OutlinedButton(
+                  onPressed: () => _openUpdateSheet(dispatch),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+                  child: const Text('Edit'),
                 ),
-                child: const Text('Edit'),
               ),
-            ),
           ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(58),
@@ -128,9 +136,9 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
                 title: '${formatCases(short)} still need labels',
                 message: shortLines.length == 1
                     ? 'One line is short. This dispatch cannot move to Loaded '
-                        'until every line is covered.'
+                          'until every line is covered.'
                     : '${shortLines.length} lines are short. This dispatch '
-                        'cannot move to Loaded until every line is covered.',
+                          'cannot move to Loaded until every line is covered.',
               )
             else
               const NoticeBanner(
@@ -188,10 +196,7 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
                   children: [
                     TextSpan(
                       text: formatQty(dispatch.issuedQty),
-                      style: AppText.mono(
-                        size: 12,
-                        weight: FontWeight.w600,
-                      ),
+                      style: AppText.mono(size: 12, weight: FontWeight.w600),
                     ),
                     TextSpan(
                       text: ' / ${formatQty(dispatch.totalQuantity)} cases',
@@ -232,18 +237,19 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
               ),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: OutlinedButton(
-                      onPressed: () => _openUpdateSheet(dispatch),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(50, 50),
+                  if (_canUpdate)
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: () => _openUpdateSheet(dispatch),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(50, 50),
+                        ),
+                        child: const Icon(Icons.edit_outlined, size: 21),
                       ),
-                      child: const Icon(Icons.edit_outlined, size: 21),
                     ),
-                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton.icon(
@@ -260,10 +266,7 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        size: 19,
-                      ),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 19),
                       label: Text(
                         isShort
                             ? 'Link the missing ${formatQty(short)}'
@@ -313,8 +316,8 @@ class _StageRail extends StatelessWidget {
                           color: i == 0
                               ? Colors.transparent
                               : (i <= current
-                                  ? AppColors.blue
-                                  : AppColors.line),
+                                    ? AppColors.blue
+                                    : AppColors.line),
                         ),
                       ),
                       Container(
@@ -581,12 +584,15 @@ class _UpdateDispatchSheet extends StatefulWidget {
 }
 
 class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
-  late final TextEditingController _vehicle =
-      TextEditingController(text: widget.dispatch.vehicleNumber);
-  late final TextEditingController _driver =
-      TextEditingController(text: widget.dispatch.driverName);
-  late final TextEditingController _contact =
-      TextEditingController(text: widget.dispatch.driverContact);
+  late final TextEditingController _vehicle = TextEditingController(
+    text: widget.dispatch.vehicleNumber,
+  );
+  late final TextEditingController _driver = TextEditingController(
+    text: widget.dispatch.driverName,
+  );
+  late final TextEditingController _contact = TextEditingController(
+    text: widget.dispatch.driverContact,
+  );
 
   late String _status = widget.dispatch.status.toLowerCase();
   bool _saving = false;
@@ -663,8 +669,8 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding
-                (padding: const EdgeInsets.fromLTRB(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
                   AppSpace.gutter,
                   0,
                   AppSpace.gutter,
@@ -802,16 +808,17 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                     ],
 
                     // Everything beyond the next stage, for orientation only.
-                    for (var i = _currentIndex + 2;
-                        i < kDispatchStages.length;
-                        i++) ...[
+                    for (
+                      var i = _currentIndex + 2;
+                      i < kDispatchStages.length;
+                      i++
+                    ) ...[
                       const SizedBox(height: 9),
                       _StageOption(
                         stage: kDispatchStages[i],
                         index: i,
                         selected: false,
-                        unreachableAfter:
-                            titleCase(kDispatchStages[i - 1]),
+                        unreachableAfter: titleCase(kDispatchStages[i - 1]),
                         onTap: null,
                       ),
                     ],
@@ -843,8 +850,9 @@ class _UpdateDispatchSheetState extends State<_UpdateDispatchSheet> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            _saving ? null : () => Navigator.pop(context),
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(52),
                         ),
@@ -940,7 +948,11 @@ class _StageOption extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (blocked)
-            const Icon(Icons.lock_outline_rounded, size: 21, color: AppColors.caution)
+            const Icon(
+              Icons.lock_outline_rounded,
+              size: 21,
+              color: AppColors.caution,
+            )
           else
             Icon(
               selected
@@ -967,12 +979,13 @@ class _StageOption extends StatelessWidget {
                           color: blocked
                               ? AppColors.cautionDeep
                               : (_disabled
-                                  ? AppColors.ink500
-                                  : AppColors.ink900),
+                                    ? AppColors.ink500
+                                    : AppColors.ink900),
                         ),
                       ),
                       TextSpan(
-                        text: ' · stage ${index + 1} of '
+                        text:
+                            ' · stage ${index + 1} of '
                             '${kDispatchStages.length}',
                         style: AppText.small,
                       ),

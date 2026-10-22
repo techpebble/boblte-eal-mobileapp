@@ -115,9 +115,11 @@ class NoticeBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(s.icon, size: 20, color: s.fg == AppColors.cautionDeep
-              ? AppColors.caution
-              : s.fg),
+          Icon(
+            s.icon,
+            size: 20,
+            color: s.fg == AppColors.cautionDeep ? AppColors.caution : s.fg,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -178,7 +180,8 @@ class LinkedProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ??
+    final color =
+        accent ??
         (isComplete
             ? AppColors.green
             : (linked <= 0 ? AppColors.ink400 : AppColors.caution));
@@ -232,12 +235,7 @@ class ThinLoadingBar extends StatelessWidget {
 
 /// A grey placeholder bar, sized like the text it stands in for.
 class SkeletonBox extends StatelessWidget {
-  const SkeletonBox({
-    super.key,
-    this.width,
-    this.height = 12,
-    this.radius = 6,
-  });
+  const SkeletonBox({super.key, this.width, this.height = 12, this.radius = 6});
 
   final double? width;
   final double height;
@@ -307,7 +305,8 @@ class SkeletonList extends StatelessWidget {
       ),
       itemCount: count,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => SkeletonListCard(opacity: i == count - 1 ? 0.55 : 1),
+      itemBuilder: (_, i) =>
+          SkeletonListCard(opacity: i == count - 1 ? 0.55 : 1),
     );
   }
 }
@@ -368,7 +367,11 @@ class EmptyState extends StatelessWidget {
             ),
             if (message != null) ...[
               const SizedBox(height: 9),
-              Text(message!, textAlign: TextAlign.center, style: AppText.bodyMuted),
+              Text(
+                message!,
+                textAlign: TextAlign.center,
+                style: AppText.bodyMuted,
+              ),
             ],
             if (onPrimary != null) ...[
               const SizedBox(height: 26),
@@ -424,7 +427,10 @@ class FigureTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: AppText.figure(size: size, color: color)),
+        Text(
+          value,
+          style: AppText.figure(size: size, color: color),
+        ),
         const SizedBox(height: 3),
         Text(label, style: AppText.micro, maxLines: 2),
       ],

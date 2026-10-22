@@ -69,12 +69,12 @@ class DashboardKpi {
   }
 
   static DashboardKpi empty() => DashboardKpi(
-        value: 0,
-        unit: 'labels',
-        previous: 0,
-        changePct: null,
-        count: 0,
-      );
+    value: 0,
+    unit: 'labels',
+    previous: 0,
+    changePct: null,
+    count: 0,
+  );
 }
 
 /// A dispatch note still short of EAL links.
@@ -141,9 +141,9 @@ class AwaitingLinking {
       casesOutstanding: _num(j['casesOutstanding']),
       notes: raw is List
           ? raw
-              .whereType<Map>()
-              .map((e) => OpenNote.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => OpenNote.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
           : const <OpenNote>[],
     );
   }
@@ -224,8 +224,7 @@ class Movement {
       company: _str(json['company']),
       item: _str(json['item']),
       packName: packMap == null ? null : _str(packMap['name']),
-      bottlesPerCase:
-          packMap == null ? null : _int(packMap['bottlesPerCase']),
+      bottlesPerCase: packMap == null ? null : _int(packMap['bottlesPerCase']),
       market: _str(json['market']),
       status: _str(json['status']),
       user: _str(json['user']),
@@ -279,9 +278,9 @@ class DashboardData {
       ),
       recentMovement: movement is List
           ? movement
-              .whereType<Map>()
-              .map((e) => Movement.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => Movement.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
           : const <Movement>[],
       periodStart: _date(period['startDate']),
       periodEnd: _date(period['endDate']),
@@ -289,11 +288,11 @@ class DashboardData {
   }
 
   static DashboardData empty() => DashboardData(
-        labelsOnHand: DashboardKpi.empty(),
-        issued: DashboardKpi.empty(),
-        applied: DashboardKpi.empty(),
-        dispatched: DashboardKpi.empty(),
-        awaitingLinking: AwaitingLinking.empty(),
-        recentMovement: const [],
-      );
+    labelsOnHand: DashboardKpi.empty(),
+    issued: DashboardKpi.empty(),
+    applied: DashboardKpi.empty(),
+    dispatched: DashboardKpi.empty(),
+    awaitingLinking: AwaitingLinking.empty(),
+    recentMovement: const [],
+  );
 }

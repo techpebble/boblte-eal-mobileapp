@@ -74,7 +74,10 @@ class AppTheme {
         fillColor: AppColors.surface,
         hintStyle: const TextStyle(fontSize: 15, color: AppColors.ink500),
         labelStyle: AppText.label,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: _fieldBorder(AppColors.lineStrong),
         enabledBorder: _fieldBorder(AppColors.lineStrong),
         focusedBorder: _fieldBorder(AppColors.blue, width: 2),
