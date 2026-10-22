@@ -10,7 +10,6 @@ import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
-import 'package:eal_scanner/widgets/ui/serial_text.dart';
 
 /// One dispatch note: where it is in its lifecycle, who is driving it, and
 /// which lines are short of labels.
@@ -400,7 +399,9 @@ class _MetaRow extends StatelessWidget {
                 Text(
                   has ? value! : placeholder,
                   textAlign: TextAlign.right,
-                  maxLines: 1,
+                  // Two lines, because a company's full legal name does not
+                  // fit beside its label and read as "Blue Ocean Bevera...".
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: isMono
                       ? AppText.mono(size: 14, weight: FontWeight.w600)
@@ -530,27 +531,16 @@ class _LineCard extends StatelessWidget {
             required_: item.quantityInCases,
             height: 6,
           ),
+          // How many ranges, not which: the card used to print the first
+          // one beside the count, so a line linked across two ranges read
+          // as if all of it sat in that one. The serials are on the line's
+          // own screen, where they are all listed.
           if (item.links.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  '${item.links.length} '
-                  '${item.links.length == 1 ? 'range' : 'ranges'}',
-                  style: AppText.micro,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SerialRangeText(
-                    prefix: item.links.first.prefix,
-                    from: item.links.first.serialFrom,
-                    to: item.links.first.serialTo,
-                    size: 11.5,
-                    showPrefix: false,
-                    color: AppColors.ink700,
-                  ),
-                ),
-              ],
+            Text(
+              '${item.links.length} '
+              '${item.links.length == 1 ? 'range linked' : 'ranges linked'}',
+              style: AppText.micro,
             ),
           ],
         ],

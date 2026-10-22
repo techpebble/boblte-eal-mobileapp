@@ -149,5 +149,62 @@ void main() {
       expect(find.text('Vehicle, driver and stage'), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     });
+
+    testWidgets('a line card counts its ranges and does not print one', (
+      tester,
+    ) async {
+      // It used to print the first range beside the count, so a line linked
+      // across two ranges read as if all of it sat in the first - here, 5
+      // cases of the 40 linked.
+      Get.put(DispatchController());
+      final linked = note('final');
+      linked['items'][0]['EALLinks'] = [
+        {
+          '_id': 'l1',
+          'prefix': 'DLK',
+          'serialFrom': 6001,
+          'serialTo': 6060,
+          'quantityInCases': 5,
+        },
+        {
+          '_id': 'l2',
+          'prefix': 'DLK',
+          'serialFrom': 9001,
+          'serialTo': 9420,
+          'quantityInCases': 35,
+        },
+      ];
+      DioClient().dio.httpClientAdapter = FakeApiRouter({
+        'dispatch': {
+          'count': 1,
+          'data': [linked],
+        },
+      });
+      Get.find<DispatchController>().fetchDispatches();
+
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.8125;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: KeyedSubtree(key: UniqueKey(), child: screen),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 ranges linked'), findsOneWidget);
+      expect(find.textContaining('6001'), findsNothing);
+      expect(find.textContaining('9001'), findsNothing);
+    });
+
+    testWidgets('a long company name is not cut off after one line', (
+      tester,
+    ) async {
+      await pump(tester, 'final', screen);
+
+      final name = tester.widget<Text>(find.text('Blue Ocean'));
+      expect(name.maxLines, 2);
+    });
   });
 }
