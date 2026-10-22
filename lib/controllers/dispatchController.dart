@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/dispatch.dart';
+import 'package:eal_scanner/models/dispatch_grouping.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/api_error.dart';
 import 'package:flutter/material.dart';
@@ -7,13 +8,25 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class DispatchController extends GetxController {
-  Rx<DateTime> selectedDate = DateTime.now().obs;
+  /// The span the list covers, as on the other two lists. The server takes
+  /// a start and an end, so a single day is a span where both are the same.
+  Rx<DateTime> fromDate = _today().obs;
+  Rx<DateTime> toDate = _today().obs;
+
   RxBool isLoading = false.obs;
   RxList<DispatchModel> dispatches = <DispatchModel>[].obs;
+
+  /// Search stays here, unlike on issuance and production. A note is looked
+  /// up by the depot it is going to, the vehicle at the gate or the driver
+  /// asking for it, and none of those is something to narrow to from a
+  /// sheet of what exists.
   RxString searchQuery = ''.obs;
 
-  /// How many days the list covers, counting back from [selectedDate].
-  RxInt rangeDays = 1.obs;
+  /// The two the list is grouped by, plus the depot it is going to and the
+  /// stage it has reached.
+  RxString filterCompany = ''.obs;
+  RxString filterMarket = ''.obs;
+  RxString filterDepot = ''.obs;
 
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
@@ -28,6 +41,11 @@ class DispatchController extends GetxController {
   /// day's records on the device.
   RxString statusFilter = ''.obs;
 
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   /// A note is short while its linked case count is below its total. Matches
   /// the tolerance the backend uses when moving `final` to `loaded`.
   bool isShortOfLabels(DispatchModel d) => d.issuedQty + 1e-6 < d.totalQuantity;
@@ -37,6 +55,9 @@ class DispatchController extends GetxController {
   List<DispatchModel> get filteredDispatches {
     final query = searchQuery.value.trim().toLowerCase();
     final status = statusFilter.value;
+    final company = filterCompany.value;
+    final market = filterMarket.value;
+    final depot = filterDepot.value;
 
     return dispatches.where((d) {
       if (status == 'short' && !isShortOfLabels(d)) return false;
@@ -45,6 +66,10 @@ class DispatchController extends GetxController {
           d.status.toLowerCase() != status) {
         return false;
       }
+
+      if (company.isNotEmpty && d.companyName != company) return false;
+      if (market.isNotEmpty && d.market.toLowerCase() != market) return false;
+      if (depot.isNotEmpty && d.depotName != depot) return false;
 
       if (query.isEmpty) return true;
 
@@ -55,29 +80,79 @@ class DispatchController extends GetxController {
     }).toList();
   }
 
+  /// What the list draws: the filtered notes, by company and market.
+  List<DispatchGroup> get groupedDispatches =>
+      groupDispatches(filteredDispatches);
+
+  /// Options come from the notes on screen, so a filter can never be set to
+  /// something there is nothing of.
+  List<String> get companyOptions =>
+      dispatches.map((d) => d.companyName).toSet().toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+  List<String> get depotOptions =>
+      dispatches.map((d) => d.depotName).toSet().toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+  int get activeFilterCount => [
+    filterCompany.value,
+    filterMarket.value,
+    filterDepot.value,
+    statusFilter.value,
+  ].where((f) => f.isNotEmpty).length;
+
+  bool get hasFilters => activeFilterCount > 0;
+
+  void clearFilters() {
+    filterCompany.value = '';
+    filterMarket.value = '';
+    filterDepot.value = '';
+    statusFilter.value = '';
+  }
+
+  /// The strip above the list shows what is on screen, so the totals follow
+  /// the filters and the search.
+  int get totalCases =>
+      filteredDispatches.fold<int>(0, (sum, d) => sum + d.totalQuantity);
+
+  int get totalShort => filteredDispatches.fold<int>(
+    0,
+    (sum, d) => sum + (d.totalQuantity - d.issuedQty).clamp(0, d.totalQuantity),
+  );
+
   void setStatusFilter(String value) {
     statusFilter.value = statusFilter.value == value ? '' : value;
   }
 
-  void pickDate() async {
-    DateTime? picked = await showDatePicker(
-      context: Get.context!,
-      initialDate: selectedDate.value,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null) {
-      selectedDate.value = picked;
-      rangeDays.value = 1;
-      fetchDispatches();
-    }
+  bool isPreset(int days) {
+    final today = _today();
+    return toDate.value == today &&
+        fromDate.value == today.subtract(Duration(days: days - 1));
   }
 
-  void setRange({required DateTime endDate, int days = 1}) {
-    selectedDate.value = endDate;
-    rangeDays.value = days;
+  bool get isYesterday {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    return fromDate.value == yesterday && toDate.value == yesterday;
+  }
+
+  bool get isSingleDay => fromDate.value == toDate.value;
+
+  void setSpan(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    fromDate.value = a.isAfter(b) ? b : a;
+    toDate.value = a.isAfter(b) ? a : b;
     fetchDispatches();
+  }
+
+  void setLastDays(int days) {
+    final today = _today();
+    setSpan(today.subtract(Duration(days: days - 1)), today);
+  }
+
+  void setYesterday() {
+    final yesterday = _today().subtract(const Duration(days: 1));
+    setSpan(yesterday, yesterday);
   }
 
   void fetchDispatches() async {
@@ -85,10 +160,8 @@ class DispatchController extends GetxController {
     errorMessage.value = '';
     isOffline.value = false;
 
-    final end = selectedDate.value;
-    final start = end.subtract(
-      Duration(days: (rangeDays.value - 1).clamp(0, 365)),
-    );
+    final start = fromDate.value;
+    final end = toDate.value;
     final formatter = DateFormat('yyyy-MM-dd');
     final url =
         'dispatch?startDate=${formatter.format(start)}&endDate=${formatter.format(end)}';
