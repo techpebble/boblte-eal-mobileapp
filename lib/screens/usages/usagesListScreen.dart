@@ -142,6 +142,7 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
         backgroundColor: AppColors.teal,
         foregroundColor: Colors.white,
         elevation: 2,
+        shape: const CircleBorder(),
         tooltip: 'New production entry',
         child: const Icon(Icons.add_rounded, size: 26),
       ),

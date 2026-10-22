@@ -3,6 +3,7 @@ import 'package:eal_scanner/screens/issuance/issuanceListScreen.dart';
 import 'package:eal_scanner/screens/issuance/issuance_filter_sheet.dart';
 import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/services/dioClient.dart';
+import 'package:eal_scanner/widgets/ui/serial_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -98,6 +99,49 @@ void main() {
     expect(find.text('750ml'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ranges are folded away until a pack size is opened', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    // Collapsed by default: the pack card says how many it holds, and shows
+    // none of them.
+    expect(find.byType(SerialRangeText), findsNothing);
+    expect(find.text('1 range'), findsNWidgets(3));
+
+    await tester.tap(find.text('90ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsOneWidget);
+
+    await tester.tap(find.text('90ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsNothing);
+  });
+
+  testWidgets('changing the dates folds everything away again', (
+    tester,
+  ) async {
+    await pumpList(tester);
+
+    await tester.tap(find.text('90ml'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsOneWidget);
+
+    // A pack left open from the last date would be one nobody opened.
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SerialRangeText), findsNothing);
+  });
+
+  testWidgets('the add button is round', (tester) async {
+    await pumpList(tester);
+
+    final fab = tester.widget<FloatingActionButton>(
+      find.byType(FloatingActionButton),
+    );
+    expect(fab.shape, isA<CircleBorder>());
   });
 
   testWidgets('there is no search box, only a filter button', (tester) async {
