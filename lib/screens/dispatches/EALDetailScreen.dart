@@ -313,10 +313,17 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                   else
                     NoticeBanner(
                       title: '${formatCases(short)} still need labels',
-                      message:
-                          'Link ${formatQty(short * item.bottlesPerCase)} '
-                          'more labels to balance this line. Scanned labels '
-                          'must already be recorded as produced.',
+                      // Telling someone to link on a screen that cannot
+                      // link reads as a contradiction of the lock at the
+                      // foot of it. The shortfall is still worth stating.
+                      message: _canLink
+                          ? 'Link ${formatQty(short * item.bottlesPerCase)} '
+                                'more labels to balance this line. Scanned '
+                                'labels must already be recorded as '
+                                'produced.'
+                          : '${formatQty(short * item.bottlesPerCase)} '
+                                'labels\u2019 worth, once this line can be '
+                                'linked.',
                     ),
                 ],
               ),

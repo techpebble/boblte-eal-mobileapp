@@ -74,6 +74,9 @@ void main() {
 
       expect(find.textContaining('Scan the missing'), findsOneWidget);
       expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
+
+      // Where it can be linked, the banner says how much to link.
+      expect(find.textContaining('more labels to balance'), findsOneWidget);
     });
 
     testWidgets('on a draft it says why instead', (tester) async {
@@ -83,6 +86,15 @@ void main() {
       expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
       expect(find.textContaining('still a draft'), findsOneWidget);
       expect(find.textContaining('marked Final'), findsOneWidget);
+
+      // And nothing above the lock tells them to link anyway. The screen
+      // said "Link 2,400 more labels" two inches above "labels can be
+      // linked once it is marked Final".
+      expect(find.textContaining('Link 2,880 more labels'), findsNothing);
+      expect(
+        find.textContaining('once this line can be linked'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('once loaded, the labels are settled', (tester) async {
