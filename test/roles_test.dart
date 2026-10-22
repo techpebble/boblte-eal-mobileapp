@@ -360,6 +360,23 @@ void main() {
       );
       expect(endsTheSession(failure(500, null)), isFalse);
     });
+
+    test('a server that cannot reach its records keeps them signed in', () {
+      // This is the one that threw a shift off the app: the sign-in check
+      // reads the person out of the database inside the same try as the
+      // token, so Atlas refusing the read answered "token failed" and the
+      // app emptied the session. The server says 503 now.
+      expect(
+        endsTheSession(
+          failure(503, {
+            'message':
+                'The server cannot reach its records at the moment. '
+                'You are still signed in; try again shortly.',
+          }),
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('what a refusal says', () {
@@ -410,6 +427,26 @@ void main() {
       expect(said, isNot(contains('bad auth')));
       expect(said, isNot(contains('DioException')));
       expect(said, isNot(contains('status code')));
+    });
+
+    test('a server that cannot reach its records says so plainly', () {
+      final options = RequestOptions(path: '/eal_usage');
+      final down = DioException(
+        requestOptions: options,
+        response: dio.Response(
+          requestOptions: options,
+          statusCode: 503,
+          data: {
+            'message':
+                'The server cannot reach its records at the moment. '
+                'You are still signed in; try again shortly.',
+          },
+        ),
+      );
+
+      final said = readableDioError(down, 'fallback');
+      expect(said, contains('still signed in'));
+      expect(said, isNot(contains('The server had a problem')));
     });
 
     test('a refusal the server wrote for them still reads', () {

@@ -28,10 +28,24 @@ String readableDioError(DioException e, String fallback) {
 
   final status = e.response?.statusCode;
 
-  // A 5xx body is whatever the server threw, written for whoever reads the
-  // logs: "bad auth : authentication failed" tells an operator nothing, and
-  // names the plumbing besides. The 4xx ones are written for them — an
-  // overlapping range, a refusal, a note that is still a draft.
+  // 503 is the server saying it cannot reach its records. It writes that
+  // sentence for the operator, and the important half of it is that they
+  // have not been signed out: a database that will not answer used to come
+  // back as a failed token and empty the session.
+  if (status == 503) {
+    final body = e.response?.data;
+    final message = body is Map ? body['message'] : null;
+    if (message != null && message.toString().trim().isNotEmpty) {
+      return message.toString();
+    }
+    return 'The server cannot reach its records at the moment. You are '
+        'still signed in; try again shortly.';
+  }
+
+  // Any other 5xx body is whatever the server threw, written for whoever
+  // reads the logs: "bad auth : authentication failed" tells an operator
+  // nothing, and names the plumbing besides. The 4xx ones are written for
+  // them — an overlapping range, a refusal, a note that is still a draft.
   if (status != null && status >= 500) {
     return 'The server had a problem with that. Try again, and tell a '
         'supervisor if it keeps happening.';
