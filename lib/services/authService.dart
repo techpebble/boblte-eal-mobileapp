@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/config/api_config.dart';
+import 'package:eal_scanner/utils/api_error.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -118,8 +119,14 @@ class AuthService {
         message.value = response.data['message'] ?? 'Login failed';
         return false;
       }
-    } catch (e) {
-      message.value = 'Login error: $e';
+    } on DioException catch (e) {
+      // This printed the whole DioException — status code, the advice to
+      // "fix the server code", and a link to MDN — at whoever was trying
+      // to sign in.
+      message.value = readableDioError(e, 'Could not sign in. Try again.');
+      return false;
+    } catch (_) {
+      message.value = 'Could not sign in. Try again.';
       return false;
     }
   }

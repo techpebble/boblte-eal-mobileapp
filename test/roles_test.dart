@@ -386,6 +386,56 @@ void main() {
       );
     });
 
+    test('a server crash is not quoted at the operator', () {
+      // What this actually said on the sign-in screen: the status code, the
+      // advice to "fix the server code", and a link to MDN.
+      final options = RequestOptions(path: '/auth/login');
+      final crash = DioException(
+        requestOptions: options,
+        message:
+            'DioException [bad response]: This exception was thrown '
+            'because the response has a status code of 500…',
+        response: dio.Response(
+          requestOptions: options,
+          statusCode: 500,
+          data: {
+            'message': 'Error login user',
+            'error': 'bad auth : authentication failed',
+          },
+        ),
+      );
+
+      final said = readableDioError(crash, 'fallback');
+      expect(said, contains('The server had a problem'));
+      expect(said, isNot(contains('bad auth')));
+      expect(said, isNot(contains('DioException')));
+      expect(said, isNot(contains('status code')));
+    });
+
+    test('a refusal the server wrote for them still reads', () {
+      // 4xx bodies are written for the operator, so those still come
+      // through as they are.
+      final options = RequestOptions(path: '/dispatch/eal/add_eal_link');
+      final refusal = DioException(
+        requestOptions: options,
+        response: dio.Response(
+          requestOptions: options,
+          statusCode: 400,
+          data: {
+            'message':
+                'Labels cannot be linked while this dispatch is a '
+                'draft. Mark it Final first, once its lines and quantities '
+                'are settled.',
+          },
+        ),
+      );
+
+      expect(
+        readableDioError(refusal, 'fallback'),
+        startsWith('Labels cannot be linked'),
+      );
+    });
+
     test('a plain error never shows its own toString', () {
       expect(
         readableError(StateError('bad'), 'Could not load that list.'),

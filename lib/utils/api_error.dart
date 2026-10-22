@@ -26,6 +26,17 @@ String readableDioError(DioException e, String fallback) {
         'again.';
   }
 
+  final status = e.response?.statusCode;
+
+  // A 5xx body is whatever the server threw, written for whoever reads the
+  // logs: "bad auth : authentication failed" tells an operator nothing, and
+  // names the plumbing besides. The 4xx ones are written for them — an
+  // overlapping range, a refusal, a note that is still a draft.
+  if (status != null && status >= 500) {
+    return 'The server had a problem with that. Try again, and tell a '
+        'supervisor if it keeps happening.';
+  }
+
   final body = e.response?.data;
   if (body is Map) {
     final message = body['error'] ?? body['message'];
@@ -34,7 +45,6 @@ String readableDioError(DioException e, String fallback) {
     }
   }
 
-  final status = e.response?.statusCode;
   if (status == 401 || status == 403) {
     return 'Your session has expired. Sign in again to continue.';
   }
