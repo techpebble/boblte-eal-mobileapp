@@ -34,32 +34,29 @@ void main() {
     // The server stores a date with no time, so every entry on a day sorts
     // equal on date alone and would otherwise stay as it arrived.
     UsageModel at(int from) => UsageModel(
-          id: '$from',
-          companyName: 'Blue Ocean',
-          itemName: 'OC Deluxe 750ml',
-          packName: 'pack',
-          dateUsed: DateTime(2026, 10, 21),
-          usedQuantity: 12,
-          usedQuantityInCases: 1,
-          balanceQuantity: 0,
-          balanceQuantityInCases: 0,
-          market: 'local',
-          prefix: 'DLK',
-          serialFrom: from.toString(),
-          serialTo: (from + 11).toString(),
-          usedSerialRanges: [],
-        );
-
-    final groups = groupUsages([
-      at(110740741),
-      at(110737765),
-      at(110739001),
-    ]);
-
-    expect(
-      groups.single.items.single.rows.map((r) => r.serialFrom),
-      ['110737765', '110739001', '110740741'],
+      id: '$from',
+      companyName: 'Blue Ocean',
+      itemName: 'OC Deluxe 750ml',
+      packName: 'pack',
+      dateUsed: DateTime(2026, 10, 21),
+      usedQuantity: 12,
+      usedQuantityInCases: 1,
+      balanceQuantity: 0,
+      balanceQuantityInCases: 0,
+      market: 'local',
+      prefix: 'DLK',
+      serialFrom: from.toString(),
+      serialTo: (from + 11).toString(),
+      usedSerialRanges: [],
     );
+
+    final groups = groupUsages([at(110740741), at(110737765), at(110739001)]);
+
+    expect(groups.single.items.single.rows.map((r) => r.serialFrom), [
+      '110737765',
+      '110739001',
+      '110740741',
+    ]);
   });
 
   test('an item adds up its entries, in the order they were made', () {
@@ -123,10 +120,11 @@ void main() {
       entry(item: 'Assorted case', cases: 1, perCase: 6),
     ]);
 
-    expect(
-      groups.single.items.map((i) => i.itemName),
-      ['180ml Reserve', '750ml Deluxe', 'Assorted case'],
-    );
+    expect(groups.single.items.map((i) => i.itemName), [
+      '180ml Reserve',
+      '750ml Deluxe',
+      'Assorted case',
+    ]);
   });
 
   test('no entries means no groups', () {

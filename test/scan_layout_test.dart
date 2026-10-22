@@ -71,9 +71,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('manual entry fits the keypad on a small screen', (
-    tester,
-  ) async {
+  testWidgets('manual entry fits the keypad on a small screen', (tester) async {
     await pumpSmall(
       tester,
       const ManualSerialScreen(
@@ -103,11 +101,7 @@ void main() {
   testWidgets('the keypad keys stay at a usable height', (tester) async {
     await pumpSmall(
       tester,
-      const ManualSerialScreen(
-        prefix: 'EXT',
-        bottlesPerCase: 96,
-        isFrom: true,
-      ),
+      const ManualSerialScreen(prefix: 'EXT', bottlesPerCase: 96, isFrom: true),
     );
 
     // 44 logical pixels is the smallest target the app allows anywhere.

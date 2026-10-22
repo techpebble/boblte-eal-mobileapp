@@ -119,8 +119,16 @@ void main() {
         balanceCases: 20,
         balanceLabels: 240,
         ranges: [
-          SerialRangeModel(total: 120, serialFrom: 110739001, serialTo: 110739120),
-          SerialRangeModel(total: 120, serialFrom: 110739121, serialTo: 110739240),
+          SerialRangeModel(
+            total: 120,
+            serialFrom: 110739001,
+            serialTo: 110739120,
+          ),
+          SerialRangeModel(
+            total: 120,
+            serialFrom: 110739121,
+            serialTo: 110739240,
+          ),
         ],
       ),
     );

@@ -57,8 +57,11 @@ void main() {
       record(pack: '180ml', from: 201, to: 300),
     ]);
 
-    expect(groups.single.packs.map((p) => p.packName),
-        ['90ml', '180ml', '750ml']);
+    expect(groups.single.packs.map((p) => p.packName), [
+      '90ml',
+      '180ml',
+      '750ml',
+    ]);
   });
 
   test('a pack size adds up its ranges, in serial order', () {
@@ -81,10 +84,11 @@ void main() {
       record(company: 'Alpha Beverages', from: 21, to: 30),
     ]);
 
-    expect(
-      groups.map((g) => '${g.companyName} ${g.market}'),
-      ['Alpha Beverages local', 'Alpha Beverages export', 'Zenith Distillers local'],
-    );
+    expect(groups.map((g) => '${g.companyName} ${g.market}'), [
+      'Alpha Beverages local',
+      'Alpha Beverages export',
+      'Zenith Distillers local',
+    ]);
   });
 
   test('no records means no groups', () {

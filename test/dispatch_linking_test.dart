@@ -79,6 +79,58 @@ void main() {
       expect(find.textContaining('more labels to balance'), findsOneWidget);
     });
 
+    testWidgets('a line that is covered offers no more scanning', (
+      tester,
+    ) async {
+      // The server allows no more than the cases ordered, so the button
+      // that used to read "Link another range" here could only come back
+      // refused.
+      Get.put(DispatchController());
+      final covered = note('final');
+      covered['EALIssuedTotalQuantity'] = 100;
+      covered['items'][0]['EALIssuedQuantity'] = 100;
+      covered['items'][0]['EALLinks'] = [
+        {
+          '_id': 'l1',
+          'prefix': 'DLK',
+          'serialFrom': 1,
+          'serialTo': 1200,
+          'quantityInCases': 100,
+        },
+      ];
+      DioClient().dio.httpClientAdapter = FakeApiRouter({
+        'dispatch': {
+          'count': 1,
+          'data': [covered],
+        },
+      });
+      Get.find<DispatchController>().fetchDispatches();
+
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.8125;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: KeyedSubtree(key: UniqueKey(), child: screen),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Link another range'), findsNothing);
+      expect(find.textContaining('Scan the missing'), findsNothing);
+
+      // Not the lock either: this line is not refused, it is finished. The
+      // banner says so, and the footer bar is gone rather than repeating it.
+      expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
+      expect(find.text('Fully labelled'), findsOneWidget);
+      expect(find.byType(BottomAppBar), findsNothing);
+      expect(
+        find.textContaining('Unlinking returns those labels'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('on a draft it says why instead', (tester) async {
       await pump(tester, 'draft', screen);
 

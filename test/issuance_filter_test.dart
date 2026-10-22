@@ -46,8 +46,13 @@ void main() {
     c.ealIssuance.value = [
       record(from: 1, to: 1000, used: 400),
       record(pack: '180ml', from: 1001, to: 2000),
-      record(company: 'Zenith', market: 'export', pack: '750ml',
-          from: 2001, to: 3000),
+      record(
+        company: 'Zenith',
+        market: 'export',
+        pack: '750ml',
+        from: 2001,
+        to: 3000,
+      ),
     ];
     return c;
   }
@@ -107,8 +112,10 @@ void main() {
 
   test('a span is stored low to high, whichever way it is given', () {
     final c = Get.put(Issuancecontroller());
-    DioClient().dio.httpClientAdapter =
-        FakeApiAdapter({'count': 0, 'data': []});
+    DioClient().dio.httpClientAdapter = FakeApiAdapter({
+      'count': 0,
+      'data': [],
+    });
 
     c.setSpan(DateTime(2026, 10, 21), DateTime(2026, 10, 15));
     expect(c.fromDate.value, DateTime(2026, 10, 15));
@@ -118,8 +125,10 @@ void main() {
 
   test('the shortcuts set spans the shortcuts then recognise', () {
     final c = Get.put(Issuancecontroller());
-    DioClient().dio.httpClientAdapter =
-        FakeApiAdapter({'count': 0, 'data': []});
+    DioClient().dio.httpClientAdapter = FakeApiAdapter({
+      'count': 0,
+      'data': [],
+    });
 
     c.setLastDays(1);
     expect(c.isPreset(1), isTrue);

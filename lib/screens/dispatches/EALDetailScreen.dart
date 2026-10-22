@@ -390,54 +390,63 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
             ],
           ],
         ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.line, width: 1)),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.gutter,
-                12,
-                AppSpace.gutter,
-                12,
-              ),
-              // Where labels cannot be changed, the reason stands in place
-              // of the button rather than beside a dead one.
-              child: _canLink
-                  ? ElevatedButton.icon(
-                      onPressed: _busy ? null : _scanMissing,
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                      label: Text(
-                        complete
-                            ? 'Link another range'
-                            : 'Scan the missing ${formatCases(short)}',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.amber,
-                      ),
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.lock_outline_rounded,
-                          size: 18,
-                          color: AppColors.ink500,
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            _whyNotLinking ?? '',
-                            style: AppText.small,
-                          ),
-                        ),
-                      ],
+        // Nothing to carry here once the line is covered: the server
+        // allows no more than the cases ordered, so "Link another range"
+        // could only come back refused, and a bar repeating the Fully
+        // labelled banner is just another thing to read.
+        bottomNavigationBar: _canLink && complete
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(
+                    top: BorderSide(color: AppColors.line, width: 1),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      12,
+                      AppSpace.gutter,
+                      12,
                     ),
-            ),
-          ),
-        ),
+                    // Where labels cannot be changed, the reason stands in place
+                    // of the button rather than beside a dead one.
+                    child: _canLink
+                        ? ElevatedButton.icon(
+                            onPressed: _busy ? null : _scanMissing,
+                            icon: const Icon(
+                              Icons.qr_code_scanner_rounded,
+                              size: 20,
+                            ),
+                            label: Text(
+                              'Scan the missing ${formatCases(short)}',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.amber,
+                            ),
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.lock_outline_rounded,
+                                size: 18,
+                                color: AppColors.ink500,
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(
+                                child: Text(
+                                  _whyNotLinking ?? '',
+                                  style: AppText.small,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
       );
     });
   }

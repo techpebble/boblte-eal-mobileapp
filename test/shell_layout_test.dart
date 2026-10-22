@@ -31,7 +31,10 @@ void main() {
     Get.put(UsageController());
     Get.put(DispatchController());
     Get.put(LoginController());
-    DioClient().dio.httpClientAdapter = FakeApiAdapter({'count': 0, 'data': []});
+    DioClient().dio.httpClientAdapter = FakeApiAdapter({
+      'count': 0,
+      'data': [],
+    });
   });
 
   tearDown(() => Get.reset());
@@ -61,7 +64,8 @@ void main() {
     expect(
       tabLabel.center.dy,
       greaterThan(screen.height * 0.75),
-      reason: 'the tab bar should sit at the bottom, not float mid-screen. '
+      reason:
+          'the tab bar should sit at the bottom, not float mid-screen. '
           'Found it at ${tabLabel.center.dy} of ${screen.height}.',
     );
   });

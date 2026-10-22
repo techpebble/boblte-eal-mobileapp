@@ -66,7 +66,9 @@ void main() {
 
     test('a single-label payload is not mistaken for a range', () {
       expect(
-        EalQrCodec.looksLikeRange('ML123|0000012012|0000012001|0000012012|12|1'),
+        EalQrCodec.looksLikeRange(
+          'ML123|0000012012|0000012001|0000012012|12|1',
+        ),
         isFalse,
       );
     });
@@ -103,8 +105,11 @@ void main() {
     test('a draft is only complete with a prefix and both ends', () {
       expect(const ScanDraft().isComplete, isFalse);
       expect(
-        const ScanDraft(prefix: 'ML', serialFrom: '1', serialTo: '2')
-            .isComplete,
+        const ScanDraft(
+          prefix: 'ML',
+          serialFrom: '1',
+          serialTo: '2',
+        ).isComplete,
         isFalse,
         reason: 'the prefix is three characters',
       );
@@ -130,10 +135,10 @@ void main() {
     // A part case is a mis-scan, not a rounding problem: casesFor would
     // quietly drop the remainder, so the range is refused instead.
     ScanDraft rangeOf(int from, int to) => ScanDraft(
-          prefix: 'ML1',
-          serialFrom: from.toString().padLeft(10, '0'),
-          serialTo: to.toString().padLeft(10, '0'),
-        );
+      prefix: 'ML1',
+      serialFrom: from.toString().padLeft(10, '0'),
+      serialTo: to.toString().padLeft(10, '0'),
+    );
 
     test('an exact multiple of the case size is accepted', () {
       final draft = rangeOf(12001, 13920);
