@@ -386,21 +386,33 @@ class _MetaRow extends StatelessWidget {
                 bottom: BorderSide(color: AppColors.lineSoft, width: 1),
               ),
       ),
+      // The value sits beside its label, not against the far edge. Pushed
+      // right, a short one like "Not set" left a hand's width of nothing
+      // across the middle of the card. The label column is a fixed width,
+      // so the three values still line up with each other.
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.ink500),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 18, color: AppColors.ink500),
+          ),
           const SizedBox(width: 10),
-          Text(label, style: AppText.small),
-          const Spacer(),
-          Flexible(
+          SizedBox(
+            width: 78,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(label, style: AppText.small),
+            ),
+          ),
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   has ? value! : placeholder,
-                  textAlign: TextAlign.right,
                   // Two lines, because a company's full legal name does not
-                  // fit beside its label and read as "Blue Ocean Bevera...".
+                  // fit on one and read as "Blue Ocean Bevera...".
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: isMono
