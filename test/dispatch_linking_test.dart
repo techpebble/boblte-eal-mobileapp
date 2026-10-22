@@ -108,32 +108,45 @@ void main() {
   group('the note screen', () {
     const screen = DispatchDetailScreen(dispatchId: 'd1');
 
-    testWidgets('a final note is asked to link what is missing', (
-      tester,
-    ) async {
+    testWidgets('the footer does not choose a line to scan', (tester) async {
       await pump(tester, 'final', screen);
 
-      expect(find.textContaining('Link the missing'), findsOneWidget);
+      // It used to jump to the first short line. Which line is being
+      // scanned is the operator's to say — on a note with three short
+      // lines that guess was usually wrong.
+      expect(find.textContaining('Link the missing'), findsNothing);
+      expect(find.text('Review the lines'), findsNothing);
+
+      // The lines are the way in, and they look like it.
+      expect(
+        find.text('Open the line you are scanning to link its labels.'),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
     });
 
-    testWidgets('a draft is not sent to a screen that can only say no', (
-      tester,
-    ) async {
+    testWidgets('a draft says what has to happen first', (tester) async {
       await pump(tester, 'draft', screen);
 
-      expect(find.textContaining('Link the missing'), findsNothing);
-      expect(find.text('Review the lines'), findsOneWidget);
-
-      // And the notice at the top says what to do next, which on a draft is
-      // not "link labels".
       expect(find.textContaining('Mark it Final'), findsOneWidget);
+
+      // And no invitation to open a line for scanning, since it cannot be
+      // scanned yet.
+      expect(
+        find.textContaining('Open the line you are scanning'),
+        findsNothing,
+      );
     });
 
-    testWidgets('one edit control, not two', (tester) async {
+    testWidgets('the footer carries what belongs to the whole note', (
+      tester,
+    ) async {
       await pump(tester, 'final', screen);
 
-      // It was in the app bar and the footer, both opening one sheet.
+      // One control, and it says what it does. It was "Edit" in the app bar
+      // and a bare pencil in the footer, both opening one sheet.
       expect(find.text('Edit'), findsNothing);
+      expect(find.text('Vehicle, driver and stage'), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     });
   });

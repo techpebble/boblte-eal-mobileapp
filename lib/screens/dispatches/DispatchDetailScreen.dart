@@ -200,6 +200,17 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
               ),
             ),
 
+            // What the footer button used to say, next to the thing it is
+            // actually about.
+            if (isShort && _canLink(dispatch))
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 10),
+                child: Text(
+                  'Open the line you are scanning to link its labels.',
+                  style: AppText.small,
+                ),
+              ),
+
             for (var i = 0; i < dispatch.items.length; i++) ...[
               if (i > 0) const SizedBox(height: 9),
               _LineCard(
@@ -215,74 +226,39 @@ class _DispatchDetailScreenState extends State<DispatchDetailScreen> {
             ],
           ],
         ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.line, width: 1)),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.gutter,
-                12,
-                AppSpace.gutter,
-                12,
-              ),
-              child: Row(
-                children: [
-                  if (_canUpdate)
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: () => _openUpdateSheet(dispatch),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(50, 50),
-                        ),
-                        child: const Icon(Icons.edit_outlined, size: 21),
-                      ),
+        // No scan button here. A note has several lines, and which one is
+        // being scanned is the operator's choice — picking the first short
+        // one for them was a guess, and on a note with three short lines it
+        // was usually the wrong one. The lines below are the way in; this
+        // footer carries what belongs to the note as a whole.
+        bottomNavigationBar: _canUpdate
+            ? Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(
+                    top: BorderSide(color: AppColors.line, width: 1),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      12,
+                      AppSpace.gutter,
+                      12,
                     ),
-                  if (_canUpdate) const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        final line = shortLines.isNotEmpty
-                            ? shortLines.first
-                            : dispatch.items.firstOrNull;
-                        if (line == null) return;
-
-                        Get.to(
-                          () => EALDetailScreen(
-                            dispatchItemId: line.id,
-                            dispatchId: dispatch.id,
-                          ),
-                        );
-                      },
-                      icon: Icon(
-                        _canLink(dispatch)
-                            ? Icons.qr_code_scanner_rounded
-                            : Icons.list_alt_rounded,
-                        size: 19,
-                      ),
-                      // Offering to link on a draft sends someone to a
-                      // screen that can only tell them no.
-                      label: Text(
-                        isShort && _canLink(dispatch)
-                            ? 'Link the missing ${formatQty(short)}'
-                            : 'Review the lines',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.amber,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openUpdateSheet(dispatch),
+                      icon: const Icon(Icons.edit_outlined, size: 19),
+                      label: const Text('Vehicle, driver and stage'),
+                      style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
+                ),
+              )
+            : null,
       );
     });
   }
@@ -504,6 +480,13 @@ class _LineCard extends StatelessWidget {
                         color: AppColors.cautionDeep,
                       ),
                     ),
+                    // The way in, now that the footer no longer picks a
+                    // line for anyone.
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 19,
+                      color: AppColors.ink400,
+                    ),
                   ],
                 )
               else
@@ -523,6 +506,11 @@ class _LineCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: AppColors.greenDeep,
                       ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 19,
+                      color: AppColors.ink400,
                     ),
                   ],
                 ),
