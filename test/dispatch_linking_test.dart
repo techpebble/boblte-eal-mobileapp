@@ -124,6 +124,10 @@ void main() {
       // banner says so, and the footer bar is gone rather than repeating it.
       expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
       expect(find.text('Fully labelled'), findsOneWidget);
+
+      // The third figure says what is left, not "0 complete".
+      expect(find.text('short'), findsOneWidget);
+      expect(find.text('complete'), findsNothing);
       expect(find.byType(BottomAppBar), findsNothing);
       expect(
         find.textContaining('Unlinking returns those labels'),

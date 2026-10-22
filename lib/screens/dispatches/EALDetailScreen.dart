@@ -279,9 +279,12 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
                         ),
                       ),
                       Expanded(
+                        // The label stays "short" when the line is covered:
+                        // "0 complete" read as a count of something, not as
+                        // nothing left to do. Green says it is settled.
                         child: FigureTile(
                           value: formatQty(complete ? 0 : short),
-                          label: complete ? 'complete' : 'short',
+                          label: 'short',
                           size: 23,
                           color: complete
                               ? AppColors.greenDeep
