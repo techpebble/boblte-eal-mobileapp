@@ -36,12 +36,11 @@ class ScanFlowScreen extends StatefulWidget {
 }
 
 class _ScanFlowScreenState extends State<ScanFlowScreen> {
-  late ScanDraft _draft = ScanDraft(
-    prefix: _initialPrefix,
-  );
+  late ScanDraft _draft = ScanDraft(prefix: _initialPrefix);
 
-  late final TextEditingController _prefixField =
-      TextEditingController(text: _initialPrefix);
+  late final TextEditingController _prefixField = TextEditingController(
+    text: _initialPrefix,
+  );
 
   late bool _editingPrefix = !_draft.hasPrefix;
   String _error = '';
@@ -209,7 +208,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     final scanned = EalQrCodec.readSingle(raw);
     if (scanned == null) {
       setState(
-        () => _error = 'That is not an EAL label code. Check you are scanning '
+        () => _error =
+            'That is not an EAL label code. Check you are scanning '
             'the excise label and not the carton barcode.',
       );
       return;
@@ -251,7 +251,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   int get _cases => _draft.casesFor(_target.bottlesPerCase);
 
   /// Where a dispatch line stands once this range is added.
-  ({int after, int outstanding, bool completes, bool exceeds})? get _lineEffect {
+  ({int after, int outstanding, bool completes, bool exceeds})?
+  get _lineEffect {
     if (!_target.hasTargetQuantity) return null;
 
     final required = _target.requiredCases!;
@@ -331,7 +332,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     final effect = complete ? _lineEffect : null;
     // A part case is refused outright: the quantity would be wrong and
     // the remainder silently dropped.
-    final ready = complete &&
+    final ready =
+        complete &&
         !_draft.isBackwards &&
         _draft.hasWholeCases(_target.bottlesPerCase);
 
@@ -360,7 +362,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
             child: Semantics(
-              label: 'Step ${_stepsDone + (complete ? 0 : 1)} '
+              label:
+                  'Step ${_stepsDone + (complete ? 0 : 1)} '
                   'of $_stepCount',
               child: Row(
                 children: [
@@ -370,8 +373,9 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                       child: Container(
                         height: 5,
                         decoration: BoxDecoration(
-                          color:
-                              i < _stepsDone ? AppColors.green : AppColors.line,
+                          color: i < _stepsDone
+                              ? AppColors.green
+                              : AppColors.line,
                           borderRadius: AppRadius.brPill,
                         ),
                       ),
@@ -458,7 +462,9 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                   : () => _scan(isFrom: false),
               // Once both ends are in, the card also says what the range
               // comes to — this was the whole of the old review screen.
-              summary: complete
+              // Unless the count is being checked against paper, in which
+              // case it gets a card of its own below.
+              summary: complete && !_target.verifiesCount
                   ? _SummaryFigures(
                       labels: _labels,
                       cases: _cases,
@@ -470,6 +476,29 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                     )
                   : null,
             ),
+
+            if (complete && _target.verifiesCount) ...[
+              const SizedBox(height: 14),
+              _VerifyCard(
+                subject: _target.subjectName!,
+                market: _target.subjectMarket,
+                cases: _cases,
+                labels: _labels,
+                bottlesPerCase: _target.bottlesPerCase,
+                accent: accent,
+              ),
+              if (_draft.isPartialCase(_target.bottlesPerCase)) ...[
+                const SizedBox(height: AppSpace.lg),
+                NoticeBanner(
+                  title: 'Not a whole number of cases',
+                  message:
+                      '${_draft.remainderFor(_target.bottlesPerCase)} labels '
+                      'more than ${formatCases(_cases)}. This cannot be '
+                      'recorded — one of the two ends above names the wrong '
+                      'label.',
+                ),
+              ],
+            ],
           ],
 
           if (!complete && _target.hasTargetQuantity) ...[
@@ -487,11 +516,11 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                   : 'Scan the last label',
               hint: _onFirstEnd
                   ? 'The lowest serial of the run — the first case off the '
-                      'line. Hold the code inside the frame and it reads on '
-                      'its own.'
+                        'line. Hold the code inside the frame and it reads on '
+                        'its own.'
                   : 'The highest serial of the run — the last case off the '
-                      'line. Hold the code inside the frame and it reads on '
-                      'its own.',
+                        'line. Hold the code inside the frame and it reads on '
+                        'its own.',
               accent: accent,
             ),
           ],
@@ -511,7 +540,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             NoticeBanner(
               level: NoticeLevel.info,
               title: 'One code covered the whole range',
-              message: 'That label carried both ends, so there is no second '
+              message:
+                  'That label carried both ends, so there is no second '
                   'scan. Scan the first label again to enter the ends '
                   'separately.',
             ),
@@ -519,7 +549,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             const SizedBox(height: 20),
             NoticeBanner(
               level: NoticeLevel.info,
-              message: 'Some issuance codes carry both ends at once. If this '
+              message:
+                  'Some issuance codes carry both ends at once. If this '
                   'one does, the range fills in and you are done after this '
                   'scan.',
             ),
@@ -876,8 +907,8 @@ class _EndRow extends StatelessWidget {
                           if (capturedAt != null) formatClock(capturedAt!),
                         ].join(' · ')
                       : waiting
-                          ? 'Waiting for this one'
-                          : 'Not captured yet',
+                      ? 'Waiting for this one'
+                      : 'Not captured yet',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -988,12 +1019,144 @@ class _SummaryFigures extends StatelessWidget {
           const SizedBox(height: AppSpace.lg),
           NoticeBanner(
             title: 'Not a whole number of cases',
-            message: '$partialBy labels more than ${formatCases(cases)}. '
+            message:
+                '$partialBy labels more than ${formatCases(cases)}. '
                 'This cannot be recorded — one of the two ends above names '
                 'the wrong label.',
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The figure being checked against the day sheet, with the thing it counts
+/// on the same card.
+///
+/// One large number and nothing else large, so there is nothing on screen to
+/// mistake it for. The labels and the case size are the arithmetic behind it,
+/// so they sit under it rather than beside it at the same size — which is
+/// what the two equal tiles used to do.
+class _VerifyCard extends StatelessWidget {
+  const _VerifyCard({
+    required this.subject,
+    required this.market,
+    required this.cases,
+    required this.labels,
+    required this.bottlesPerCase,
+    required this.accent,
+  });
+
+  final String subject;
+  final String? market;
+  final int cases;
+  final int labels;
+  final int bottlesPerCase;
+  final Color accent;
+
+  Widget _behind(String value, String label) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(fontSize: 12, color: AppColors.ink500),
+        children: [
+          TextSpan(
+            text: value,
+            style: AppText.mono(
+              size: 12,
+              weight: FontWeight.w600,
+              color: AppColors.ink700,
+            ),
+          ),
+          TextSpan(text: ' $label'),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 11),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    subject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.16,
+                      color: AppColors.ink900,
+                    ),
+                  ),
+                ),
+                if (market != null) ...[
+                  const SizedBox(width: 9),
+                  MarketChip(market!, dense: true),
+                ],
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: 1, color: AppColors.lineSoft),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 15),
+            child: Column(
+              children: [
+                // Scaled down rather than wrapped or cut: a day's run can
+                // reach six figures, and a phone can be narrow.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    formatQty(cases),
+                    style: AppText.figure(size: 52, color: AppColors.tealDeep),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'cases produced',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 9, 14, 11),
+            decoration: const BoxDecoration(
+              color: AppColors.canvas,
+              border: Border(
+                top: BorderSide(color: AppColors.lineSoft, width: 1),
+              ),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 2,
+              children: [
+                _behind(formatQty(labels), 'labels'),
+                const Text('·', style: TextStyle(color: AppColors.lineField)),
+                _behind('$bottlesPerCase', 'per case'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1018,7 +1181,8 @@ class _LineEffectCard extends StatelessWidget {
       return NoticeBanner(
         level: NoticeLevel.error,
         title: 'That is more than the line ordered',
-        message: 'The line is for ${formatCases(required_)} and '
+        message:
+            'The line is for ${formatCases(required_)} and '
             '${formatQty(already)} are linked. Adding ${formatQty(adding)} '
             'would overshoot by ${formatQty(-effect.outstanding)}. The server '
             'will refuse it.',
@@ -1081,7 +1245,8 @@ class _LineEffectCard extends StatelessWidget {
 
     return NoticeBanner(
       title: 'The line will still be short',
-      message: '${formatCases(effect.outstanding)} left after this one. '
+      message:
+          '${formatCases(effect.outstanding)} left after this one. '
           'The dispatch cannot move to Loaded until every line is covered.',
     );
   }

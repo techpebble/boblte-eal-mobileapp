@@ -23,6 +23,8 @@ void main() {
     ScanUnit unit = ScanUnit.labels,
     int? requiredCases,
     int? alreadyLinkedCases,
+    String? subjectName,
+    String? subjectMarket,
   }) {
     return ScanTarget(
       module: AppModule.issuance,
@@ -33,6 +35,8 @@ void main() {
       initialPrefix: 'EXT',
       requiredCases: requiredCases,
       alreadyLinkedCases: alreadyLinkedCases,
+      subjectName: subjectName,
+      subjectMarket: subjectMarket,
       submit: submit,
     );
   }
@@ -94,10 +98,12 @@ void main() {
 
     await pump(
       tester,
-      target(submit: (draft) async {
-        sent = draft;
-        return null;
-      }),
+      target(
+        submit: (draft) async {
+          sent = draft;
+          return null;
+        },
+      ),
     );
 
     await typeWholeRange(tester);
@@ -175,5 +181,89 @@ void main() {
       find.widgetWithText(ElevatedButton, 'Use this serial'),
     );
     expect(use.onPressed, isNull);
+  });
+
+  testWidgets('production checks the case count on a card of its own', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      target(
+        unit: ScanUnit.cases,
+        subjectName: 'OC Deluxe 750ml',
+        subjectMarket: 'local',
+        submit: (_) async => null,
+      ),
+    );
+    await typeWholeRange(tester);
+
+    // The item is named beside the figure, so the count can be checked
+    // against the day sheet without reading the app bar.
+    expect(find.text('OC Deluxe 750ml'), findsOneWidget);
+    expect(find.text('cases produced'), findsOneWidget);
+
+    // One large figure and nothing else large on the screen.
+    final cases = tester.widget<Text>(find.text('1,000'));
+    expect(cases.style?.fontSize, 52);
+    for (final other in find.byType(Text).evaluate()) {
+      final size = (other.widget as Text).style?.fontSize ?? 0;
+      if (identical(other.widget, cases)) continue;
+      expect(
+        size,
+        lessThan(30),
+        reason: 'something else on the screen competes with the count',
+      );
+    }
+
+    // The arithmetic behind it stays, in the small line under it.
+    expect(
+      find.textContaining('96,000 labels', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('96 per case', findRichText: true),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the big count scales down rather than overflowing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(640, 2000);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScanFlowScreen(
+          target: target(
+            unit: ScanUnit.cases,
+            subjectName: 'OC Deluxe 750ml',
+            subjectMarket: 'local',
+            submit: (_) async => null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await typeWholeRange(tester);
+
+    expect(find.text('1,000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('issuance keeps the paired figures, not the big card', (
+    tester,
+  ) async {
+    await pump(tester, target(submit: (_) async => null));
+    await typeWholeRange(tester);
+
+    // An issuance counts in labels and is not checked off a day sheet, so
+    // nothing here grows to the size production's count does.
+    expect(find.text('cases produced'), findsNothing);
+    for (final text in find.byType(Text).evaluate()) {
+      expect((text.widget as Text).style?.fontSize ?? 0, lessThan(30));
+    }
   });
 }

@@ -28,6 +28,8 @@ class ScanTarget {
     this.initialPrefix = '',
     this.requiredCases,
     this.alreadyLinkedCases,
+    this.subjectName,
+    this.subjectMarket,
   });
 
   final AppModule module;
@@ -52,11 +54,21 @@ class ScanTarget {
   final int? requiredCases;
   final int? alreadyLinkedCases;
 
+  /// What the count is of, named beside the figure once both ends are in,
+  /// so the number can be checked against the day sheet without reading the
+  /// app bar. Production sets these; a module that leaves them null keeps
+  /// the paired figures inside the range card.
+  final String? subjectName;
+  final String? subjectMarket;
+
   /// Returns null when the server accepted it, otherwise the message to show.
   final Future<String?> Function(ScanDraft draft) submit;
 
-  bool get hasTargetQuantity =>
-      requiredCases != null && requiredCases! > 0;
+  bool get hasTargetQuantity => requiredCases != null && requiredCases! > 0;
+
+  /// True where the finished count gets a card of its own rather than a
+  /// tile beside the labels.
+  bool get verifiesCount => subjectName != null && unit == ScanUnit.cases;
 }
 
 /// A range being assembled, step by step.
@@ -181,9 +193,7 @@ class EalQrCodec {
     r'^([A-Z0-9]+)\|(\d{10})\|(\d{10})\|(\d{10})\|(\d+)\|(\d+)$',
   );
 
-  static final RegExp _range = RegExp(
-    r'^(\d{10})_(\d{10})_.*[|~]\d*\|?$',
-  );
+  static final RegExp _range = RegExp(r'^(\d{10})_(\d{10})_.*[|~]\d*\|?$');
 
   /// Pads a serial the way the API expects it.
   static String pad(int serial) => serial.toString().padLeft(10, '0');

@@ -104,6 +104,8 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
             contextLine: '${item.displayName} · ${titleCase(item.market)}',
             bottlesPerCase: item.bottlesPerCase,
             unit: ScanUnit.cases,
+            subjectName: item.displayName,
+            subjectMarket: item.market,
             submit: (draft) {
               final labels = draft.labels;
               final cases = draft.casesFor(item.bottlesPerCase);
