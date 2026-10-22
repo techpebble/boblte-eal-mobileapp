@@ -51,6 +51,8 @@ Future<T?> showPickerSheet<T>({
   List<T> recentValues = const [],
   String recentLabel = 'Used today',
   String? emptyMessage,
+  String? errorMessage,
+  VoidCallback? onRetry,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -66,6 +68,8 @@ Future<T?> showPickerSheet<T>({
       recentValues: recentValues,
       recentLabel: recentLabel,
       emptyMessage: emptyMessage,
+      errorMessage: errorMessage,
+      onRetry: onRetry,
     ),
   );
 }
@@ -81,6 +85,8 @@ class _PickerSheet<T> extends StatefulWidget {
     this.subtitle,
     this.selected,
     this.emptyMessage,
+    this.errorMessage,
+    this.onRetry,
   });
 
   final String title;
@@ -92,6 +98,12 @@ class _PickerSheet<T> extends StatefulWidget {
   final List<T> recentValues;
   final String recentLabel;
   final String? emptyMessage;
+
+  /// Why the list could not be read, where it could not be. A list that
+  /// failed is not an empty list: saying "nothing to choose" sends someone
+  /// looking for records that are there and that they were refused.
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   @override
   State<_PickerSheet<T>> createState() => _PickerSheetState<T>();
@@ -112,6 +124,12 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
   @override
   Widget build(BuildContext context) {
     final visible = _visible;
+
+    // A list that could not be read is not a list with nothing in it.
+    final failed =
+        widget.errorMessage != null &&
+        widget.errorMessage!.isNotEmpty &&
+        widget.options.isEmpty;
     final recent = visible
         .where((o) => widget.recentValues.contains(o.value))
         .toList();
@@ -197,19 +215,35 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                       padding: const EdgeInsets.all(AppSpace.xxl),
                       child: Column(
                         children: [
-                          const Icon(
-                            Icons.search_off_rounded,
+                          Icon(
+                            failed
+                                ? Icons.lock_outline_rounded
+                                : Icons.search_off_rounded,
                             size: 32,
-                            color: AppColors.ink400,
+                            color: failed
+                                ? AppColors.cautionDeep
+                                : AppColors.ink400,
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            _query.isEmpty
+                            failed
+                                ? widget.errorMessage!
+                                : _query.isEmpty
                                 ? (widget.emptyMessage ?? 'Nothing to choose')
                                 : 'Nothing matches “${_query.trim()}”',
                             textAlign: TextAlign.center,
                             style: AppText.bodyMuted,
                           ),
+                          if (failed && widget.onRetry != null) ...[
+                            const SizedBox(height: AppSpace.md),
+                            OutlinedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                widget.onRetry!();
+                              },
+                              child: const Text('Try again'),
+                            ),
+                          ],
                         ],
                       ),
                     )

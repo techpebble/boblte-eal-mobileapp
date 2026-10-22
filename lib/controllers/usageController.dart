@@ -32,6 +32,13 @@ class UsageController extends GetxController {
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
+  /// Why the item list could not be read, where it could not be. A role may
+  /// hold usage:create without masterdata:view, which lets someone open this
+  /// screen and then be refused the list of items to record against — so the
+  /// reason has to reach the screen rather than a snackbar that has gone by
+  /// the time the picker opens.
+  RxString itemsError = ''.obs;
+
   List<UsageModel> get filteredUsages {
     final company = filterCompany.value;
     final market = filterMarket.value;
@@ -210,6 +217,7 @@ class UsageController extends GetxController {
   Future<bool> fetchItems() async {
     try {
       isLoading.value = true;
+      itemsError.value = '';
       final Dio dio = DioClient().dio;
 
       final res = await dio.get(
@@ -223,16 +231,14 @@ class UsageController extends GetxController {
             .where((item) => item.isActive)
             .toList();
         return true;
-      } else {
-        items.clear();
-        isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load items');
-        return false;
       }
+
+      items.clear();
+      itemsError.value = readableResponseError(res, 'Could not load items.');
+      return false;
     } catch (e) {
       items.clear();
-      isLoading.value = false;
-      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
+      itemsError.value = readableError(e, 'Could not load items.');
       return false;
     } finally {
       isLoading.value = false;

@@ -110,6 +110,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
       accent: AppColors.indigo,
       selected: _company,
       emptyMessage: 'No companies have been set up yet.',
+      errorMessage: _controller.listsError.value,
       options: _controller.companies
           .map((c) => PickerOption<Company>(value: c, label: c.name))
           .toList(),
@@ -125,6 +126,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
       accent: AppColors.indigo,
       selected: _pack,
       emptyMessage: 'No pack sizes have been set up yet.',
+      errorMessage: _controller.listsError.value,
       options: _controller.packs
           .map(
             (p) => PickerOption<PackSize>(
@@ -247,8 +249,15 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
             Flexible(
               child: Obx(() {
                 // Read so the sheet rebuilds when either list arrives.
+                // Only while something is still expected. A refusal left
+                // this true for ever, so the sheet sat under a progress bar
+                // that was never going to finish.
                 final loading =
-                    _controller.packs.isEmpty || _controller.companies.isEmpty;
+                    (_controller.packs.isEmpty ||
+                        _controller.companies.isEmpty) &&
+                    _controller.listsError.value.isEmpty;
+
+                final failed = _controller.listsError.value;
 
                 return ListView(
                   shrinkWrap: true,
@@ -329,6 +338,23 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
                     if (loading) ...[
                       const SizedBox(height: AppSpace.md),
                       const ThinLoadingBar(),
+                    ],
+
+                    if (failed.isNotEmpty) ...[
+                      const SizedBox(height: AppSpace.lg),
+                      NoticeBanner(
+                        level: NoticeLevel.error,
+                        title: 'Companies and pack sizes could not be loaded',
+                        message: failed,
+                        trailing: TextButton(
+                          onPressed: () {
+                            _controller.listsError.value = '';
+                            _controller.fetchPackSizes();
+                            _controller.fetchCompanies();
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ),
                     ],
                   ],
                 );

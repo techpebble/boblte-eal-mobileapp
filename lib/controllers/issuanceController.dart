@@ -36,6 +36,11 @@ class Issuancecontroller extends GetxController {
   /// Shown inline on the list rather than thrown as a snackbar.
   RxString errorMessage = ''.obs;
 
+  /// Why the company or pack list could not be read. The sheet waits on both
+  /// before it can record anything, so a refusal has to be said rather than
+  /// left as a progress bar that never finishes.
+  RxString listsError = ''.obs;
+
   List<IssuanceModel> get filteredIssuance {
     final company = filterCompany.value;
     final market = filterMarket.value;
@@ -188,11 +193,11 @@ class Issuancecontroller extends GetxController {
             .toList();
       } else {
         isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load companies');
+        listsError.value = 'Could not load companies.';
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
+      listsError.value = readableError(e, 'Could not load that list.');
     } finally {
       isLoading.value = false;
     }
@@ -213,11 +218,11 @@ class Issuancecontroller extends GetxController {
             .toList();
       } else {
         isLoading.value = false;
-        Get.snackbar('Error', 'Failed to load Pack Sizes');
+        listsError.value = 'Could not load pack sizes.';
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Error', readableError(e, 'Could not load that list.'));
+      listsError.value = readableError(e, 'Could not load that list.');
     } finally {
       isLoading.value = false;
     }

@@ -79,6 +79,38 @@ void main() {
     expect(find.text('Active items only.'), findsOneWidget);
   });
 
+  testWidgets('a refused item list says why, and does not claim to be empty', (
+    tester,
+  ) async {
+    final controller = Get.put(UsageController());
+    // Exactly the Demo Role case: usage:create without masterdata:view, so
+    // the screen opens and the list it needs is refused.
+    DioClient().dio.httpClientAdapter = FakeApiRefusing(
+      'items',
+      'Demo Role is not allowed to see items, packs, depots and companies. '
+          'Ask an administrator.',
+    );
+
+    await tester.pumpWidget(const GetMaterialApp(home: EALStickerScreen()));
+    await tester.pumpAndSettle();
+
+    expect(controller.items, isEmpty);
+    expect(controller.itemsError.value, startsWith('Demo Role is not allowed'));
+
+    // Said on the screen, before anything is tapped.
+    expect(find.text('Items could not be loaded'), findsOneWidget);
+    expect(find.textContaining('Demo Role is not allowed'), findsOneWidget);
+
+    // And in the picker, instead of "No active items found" — there are 75
+    // items; this role may not read them.
+    await tester.tap(find.text('Choose item'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No active items found.'), findsNothing);
+    expect(find.textContaining('Demo Role is not allowed'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the request asks the server for active items only', (
     tester,
   ) async {
@@ -94,8 +126,9 @@ void main() {
     await tester.tap(find.text('Choose item'));
     await tester.pumpAndSettle();
 
-    final itemRequests =
-        api.requests.where((r) => r.path.contains('items')).toList();
+    final itemRequests = api.requests
+        .where((r) => r.path.contains('items'))
+        .toList();
     expect(itemRequests, isNotEmpty);
     expect(itemRequests.last.queryParameters['isActive'], 'true');
   });

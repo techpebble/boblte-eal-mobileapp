@@ -67,6 +67,11 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
       accent: AppColors.teal,
       selected: _item,
       emptyMessage: 'No active items found.',
+      // A refusal is not an empty shelf. Without this the sheet claimed
+      // there were no items when there were 75 and the role simply may not
+      // read them.
+      errorMessage: _controller.itemsError.value,
+      onRetry: _pickItem,
       recentValues: _controller.items
           .where((i) => recentIds.contains(i.displayName))
           .toList(),
@@ -176,6 +181,22 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
             AppSpace.xxl,
           ),
           children: [
+            // Said on the way in, not only when the picker is opened: with
+            // no items there is nothing this screen can do, and the reason
+            // is the one thing worth knowing.
+            if (_controller.itemsError.isNotEmpty) ...[
+              NoticeBanner(
+                level: NoticeLevel.error,
+                title: 'Items could not be loaded',
+                message: _controller.itemsError.value,
+                trailing: TextButton(
+                  onPressed: _controller.fetchItems,
+                  child: const Text('Retry'),
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+            ],
+
             const SectionHeading('Item produced'),
             if (item == null)
               AppCard(

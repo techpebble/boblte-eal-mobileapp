@@ -70,6 +70,60 @@ Map<String, dynamic> itemResponse({bool populated = true, bool? isActive}) => {
   if (isActive != null) 'isActive': isActive,
 };
 
+/// Refuses one path the way `authorize` does, and answers the rest.
+///
+/// A role may hold usage:create without masterdata:view, which is exactly
+/// this: the screen opens and the list it needs is refused.
+class FakeApiRefusing implements HttpClientAdapter {
+  FakeApiRefusing(
+    this.refusedPath,
+    this.message, {
+    this.routes = const {},
+    this.required_ = const ['masterdata:view'],
+  });
+
+  final String refusedPath;
+  final String message;
+  final Map<String, Object> routes;
+  final List<String> required_;
+  final List<RequestOptions> requests = [];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(options);
+
+    if (options.path.contains(refusedPath)) {
+      return ResponseBody.fromString(
+        jsonEncode({'message': message, 'required': required_}),
+        403,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
+
+    final match = routes.entries
+        .where((e) => options.path.contains(e.key))
+        .map((e) => e.value)
+        .firstOrNull;
+
+    return ResponseBody.fromString(
+      jsonEncode(match ?? const {'count': 0, 'data': []}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 /// Answers by path, for a screen that loads more than one list.
 ///
 /// Matches on the first key whose text appears in the request path, so
@@ -111,12 +165,7 @@ class FakeApiRouter implements HttpClientAdapter {
 Map<String, dynamic> companyResponse({
   String id = '64a000000000000000000002',
   String name = 'Blue Ocean Beverages Pvt. Ltd.',
-}) => {
-  '_id': id,
-  'code': 'BOB',
-  'name': name,
-  'address': 'Industrial Estate',
-};
+}) => {'_id': id, 'code': 'BOB', 'name': name, 'address': 'Industrial Estate'};
 
 Map<String, dynamic> packResponse({
   String id = '64a000000000000000000003',
@@ -130,4 +179,3 @@ Map<String, dynamic> packResponse({
   // PackSize.pack is the millilitre size, and the model types it as an int.
   'pack': pack,
 };
-
