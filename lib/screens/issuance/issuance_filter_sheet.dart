@@ -242,8 +242,14 @@ class _FilterField extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.control),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
+        // 56, as the design has it. With only padding round a Row this was
+        // about 38 while nothing was picked — shorter than the market
+        // choices beside it — and jumped to about 66 once something was,
+        // because the clear button is a full-sized IconButton. A control
+        // that changes height when you use it is the thing you notice.
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.fromLTRB(14, 7, 10, 7),
           child: Row(
             children: [
               Icon(
@@ -270,6 +276,11 @@ class _FilterField extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded, size: 16),
                   tooltip: 'Clear',
                   visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 34,
+                    height: 34,
+                  ),
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.indigoTint,
                     foregroundColor: AppColors.indigoDeep,
