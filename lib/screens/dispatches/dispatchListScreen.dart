@@ -869,20 +869,24 @@ class _ShortButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              // Selected, the cross carries the meaning and the word would
-              // only crowd it: filled amber already says this is the
-              // shortfall, and the reading is in the Semantics label.
-              if (selected)
-                const Icon(Icons.close_rounded, size: 13, color: Colors.white)
-              else
-                const Text(
+              // Flexible, so a long figure or a wide font shortens the word
+              // rather than running the button off the edge.
+              Flexible(
+                child: Text(
                   'short',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.cautionDeep,
+                    color: selected ? Colors.white : AppColors.cautionDeep,
                   ),
                 ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.close_rounded, size: 13, color: Colors.white),
+              ],
             ],
           ),
         ),
