@@ -303,10 +303,18 @@ class _Trace extends StatelessWidget {
                 accent: AppColors.indigo,
                 title: 'Issued',
                 date: issuance?.date,
+                enteredBy: issuance?.enteredBy ?? '',
+                enteredAt: issuance?.enteredAt,
                 lines: [
+                  // These figures belong to the issuance this label came
+                  // out of, not to the label, so the sentence names what
+                  // is counted: "9,600 issued · 9,600 unused" read as
+                  // though nothing had been used even when this very
+                  // label had been.
                   if (issuance != null)
-                    '${formatLabels(issuance.issuedQuantity)} issued · '
-                        '${formatLabels(issuance.balanceQuantity)} unused',
+                    '${formatLabels(issuance.issuedQuantity)} in this '
+                        'issuance · ${formatQty(issuance.balanceQuantity)} '
+                        'of them still unused',
                 ],
                 range: issuance == null
                     ? null
@@ -323,6 +331,8 @@ class _Trace extends StatelessWidget {
                     accent: AppColors.teal,
                     title: 'Applied',
                     date: run.date,
+                    enteredBy: run.enteredBy,
+                    enteredAt: run.enteredAt,
                     lines: [
                       run.itemName,
                       '${formatCases(run.cases)} on this run'
@@ -348,11 +358,19 @@ class _Trace extends StatelessWidget {
                     accent: AppColors.amber,
                     title: 'Dispatched',
                     date: trace.dispatches[i].date,
+                    enteredBy: trace.dispatches[i].enteredBy,
+                    enteredAt: trace.dispatches[i].enteredAt,
+                    enteredVerb: 'linked',
+                    // Where the note has got to. Linked is not the same as
+                    // gone: a label on a note still at Final has not left
+                    // the plant.
+                    badge: trace.dispatches[i].status.isEmpty
+                        ? null
+                        : DispatchStatusPill(trace.dispatches[i].status),
                     lines: [
                       if (trace.dispatches[i].depotName.isNotEmpty)
                         trace.dispatches[i].depotName,
-                      '${formatCases(trace.dispatches[i].cases)} linked'
-                          '${trace.dispatches[i].status.isNotEmpty ? ' · note is ${titleCase(trace.dispatches[i].status)}' : ''}',
+                      '${formatCases(trace.dispatches[i].cases)} linked',
                     ],
                     range: (
                       from: trace.dispatches[i].serialFrom,
@@ -377,6 +395,13 @@ class _Trace extends StatelessWidget {
 }
 
 /// A stage that happened, with the range it covers.
+///
+/// Two dates sit on one row and they are not the same thing. The record's
+/// own date — the day the labels were issued, applied or sent — belongs to
+/// the stage, so it is on the title line. The moment someone typed it into
+/// the app is a footnote under a hairline, with their name. Where the two
+/// differ, the footnote carries its date as well: a run typed up the next
+/// morning is worth seeing.
 class _Stage extends StatelessWidget {
   const _Stage({
     required this.icon,
@@ -388,6 +413,10 @@ class _Stage extends StatelessWidget {
     required this.range,
     required this.prefix,
     required this.isLast,
+    required this.enteredBy,
+    required this.enteredAt,
+    this.enteredVerb = 'entered',
+    this.badge,
   });
 
   final IconData icon;
@@ -399,11 +428,38 @@ class _Stage extends StatelessWidget {
   final ({int from, int to})? range;
   final String prefix;
   final bool isLast;
+  final String enteredBy;
+  final DateTime? enteredAt;
+
+  /// "entered" for a record someone keyed in, "linked" for labels put
+  /// against a dispatch line.
+  final String enteredVerb;
+
+  /// Sits above the detail lines, for a stage that has a state of its own.
+  final Widget? badge;
+
+  String get _entry {
+    if (enteredAt == null) return enteredBy;
+
+    final sameDay =
+        date != null &&
+        date!.year == enteredAt!.year &&
+        date!.month == enteredAt!.month &&
+        date!.day == enteredAt!.day;
+
+    final when = sameDay
+        ? formatClock(enteredAt!)
+        : '${formatDayMonth(enteredAt!)}, ${formatClock(enteredAt!)}';
+
+    return enteredBy.isEmpty
+        ? '$enteredVerb $when'
+        : '$enteredBy · $enteredVerb $when';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
       decoration: BoxDecoration(
         border: isLast
             ? null
@@ -428,24 +484,32 @@ class _Stage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: title,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
                         style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.ink900,
                         ),
                       ),
-                      if (date != null)
-                        TextSpan(
-                          text: ' · ${formatDayMonthYear(date!)}',
-                          style: AppText.small,
+                    ),
+                    if (date != null) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        formatDayMonthYear(date!),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.ink500,
                         ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
                 if (range != null) ...[
                   const SizedBox(height: 3),
@@ -458,11 +522,45 @@ class _Stage extends StatelessWidget {
                     color: AppColors.ink700,
                   ),
                 ],
+                if (badge != null) ...[const SizedBox(height: 6), badge!],
                 for (final line in lines)
                   if (line.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(line, style: AppText.micro),
                   ],
+
+                // The footnote: smaller, paler, and set apart, because it
+                // is about the record rather than about the labels.
+                Container(
+                  margin: const EdgeInsets.only(top: 7),
+                  padding: const EdgeInsets.only(top: 7),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: AppColors.lineSoft, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_outline_rounded,
+                        size: 12,
+                        color: AppColors.ink400,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          _entry,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.ink400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

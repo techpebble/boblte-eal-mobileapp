@@ -54,6 +54,15 @@ class EalTrace {
     return null;
   }
 
+  /// Who typed it in. The server populates createdBy with the full name,
+  /// and falls back to the account it was signed in under.
+  static String _person(dynamic value) {
+    if (value is! Map) return '';
+    final name = '${value['fullName'] ?? ''}'.trim();
+    if (name.isNotEmpty) return name;
+    return '${value['email'] ?? ''}'.trim();
+  }
+
   factory EalTrace.fromJson(Map<String, dynamic> json) {
     final body = (json['respondData'] ?? json) as Map<String, dynamic>;
 
@@ -94,6 +103,8 @@ class EalTrace {
 /// The issuance that covers the serial: where the label came from.
 class TraceIssuance {
   const TraceIssuance({
+    required this.enteredBy,
+    required this.enteredAt,
     required this.id,
     required this.date,
     required this.serialFrom,
@@ -117,10 +128,18 @@ class TraceIssuance {
   final int bottlesPerCase;
   final String market;
 
+  /// The person who recorded it, and the moment they did — which is not
+  /// the record's own date: a run worked at night is typed up the next
+  /// morning, and the gap is worth seeing.
+  final String enteredBy;
+  final DateTime? enteredAt;
+
   factory TraceIssuance.fromJson(Map<String, dynamic> json) {
     final pack = json['pack'];
 
     return TraceIssuance(
+      enteredBy: EalTrace._person(json['createdBy']),
+      enteredAt: EalTrace._date(json['createdAt']),
       id: '${json['id'] ?? json['_id'] ?? ''}',
       date: EalTrace._date(json['dateIssued']),
       serialFrom: EalTrace._int(json['serialFrom']),
@@ -138,6 +157,8 @@ class TraceIssuance {
 /// A production run that applied the label.
 class TraceRun {
   const TraceRun({
+    required this.enteredBy,
+    required this.enteredAt,
     required this.id,
     required this.date,
     required this.serialFrom,
@@ -157,8 +178,16 @@ class TraceRun {
   /// Cases of this run that have not gone out yet.
   final int waitingCases;
 
+  /// The person who recorded it, and the moment they did — which is not
+  /// the record's own date: a run worked at night is typed up the next
+  /// morning, and the gap is worth seeing.
+  final String enteredBy;
+  final DateTime? enteredAt;
+
   factory TraceRun.fromJson(Map<String, dynamic> json) {
     return TraceRun(
+      enteredBy: EalTrace._person(json['createdBy']),
+      enteredAt: EalTrace._date(json['createdAt']),
       id: '${json['id'] ?? json['_id'] ?? ''}',
       date: EalTrace._date(json['dateUsed']),
       serialFrom: EalTrace._int(json['serialFrom']),
@@ -173,6 +202,8 @@ class TraceRun {
 /// A dispatch link, with the note it belongs to where the server sent one.
 class TraceDispatch {
   const TraceDispatch({
+    required this.enteredBy,
+    required this.enteredAt,
     required this.id,
     required this.dispatchId,
     required this.date,
@@ -194,11 +225,19 @@ class TraceDispatch {
   final String depotName;
   final String status;
 
+  /// The person who recorded it, and the moment they did — which is not
+  /// the record's own date: a run worked at night is typed up the next
+  /// morning, and the gap is worth seeing.
+  final String enteredBy;
+  final DateTime? enteredAt;
+
   factory TraceDispatch.fromJson(
     Map<String, dynamic> json,
     Map<String, dynamic>? note,
   ) {
     return TraceDispatch(
+      enteredBy: EalTrace._person(json['createdBy']),
+      enteredAt: EalTrace._date(json['createdAt']),
       id: '${json['id'] ?? json['_id'] ?? ''}',
       dispatchId: '${json['dispatchId'] ?? ''}',
       date: EalTrace._date(json['dateDispatched']),

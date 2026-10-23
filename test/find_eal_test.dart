@@ -38,6 +38,8 @@ void main() {
           'issuedQuantity': 9600,
           'balanceQuantity': 1200,
           'company': {'name': 'Blue Ocean Beverages Pvt. Ltd.'},
+          'createdBy': {'fullName': 'Priya Nair'},
+          'createdAt': '2026-10-20T08:12:00.000Z',
           'market': 'local',
           'pack': {'name': '180ml', 'bottlesPerCase': 48},
           'prefix': 'AAA',
@@ -51,6 +53,8 @@ void main() {
           'serialTo': 4800,
           'usedQuantityInCases': 100,
           'balanceQuantityInCases': 30,
+          'createdBy': {'fullName': 'Demo User'},
+          'createdAt': '2026-10-22T09:14:00.000Z',
           'item': {'name': 'Old Monk Gold Reserve 180ml'},
         },
       ],
@@ -62,6 +66,8 @@ void main() {
           'serialFrom': 1,
           'serialTo': 1440,
           'usedQuantityInCases': 30,
+          'createdBy': {'fullName': 'Demo User'},
+          'createdAt': '2026-10-23T11:48:00.000Z',
         },
       ],
       'dispatches': [
@@ -112,16 +118,70 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
     await tester.pumpAndSettle();
 
-    // Each title carries its date in the same line, so match on the word.
-    expect(find.textContaining('Issued · '), findsOneWidget);
-    expect(find.textContaining('Applied · '), findsOneWidget);
-    expect(find.textContaining('Dispatched · '), findsOneWidget);
+    // The stage, and its own date beside it rather than inside the title.
+    expect(find.text('Issued'), findsOneWidget);
+    expect(find.text('Applied'), findsOneWidget);
+    expect(find.text('Dispatched'), findsOneWidget);
+    expect(find.text('20 Oct 2026'), findsOneWidget);
+    expect(find.text('22 Oct 2026'), findsNWidgets(2));
 
     // Each stage carries what it is: the item it was stuck on, and the
     // depot it went to.
     expect(find.text('Old Monk Gold Reserve 180ml'), findsOneWidget);
     expect(find.text('KSBCL Depot - Attibele'), findsOneWidget);
     expect(find.textContaining('30 cases linked'), findsOneWidget);
+  });
+
+  testWidgets('each stage says who recorded it, and when', (tester) async {
+    serve(found);
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'AAA0000002401');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
+    await tester.pumpAndSettle();
+
+    // Entered the same day as the record's own date: the time alone.
+    expect(find.text('Priya Nair · entered 08:12'), findsOneWidget);
+    expect(find.text('Demo User · entered 09:14'), findsOneWidget);
+
+    // Linked the day after the note's date, so the footnote carries its
+    // own date too — a gap worth seeing.
+    expect(find.text('Demo User · linked 23 Oct, 11:48'), findsOneWidget);
+  });
+
+  testWidgets('the dispatch stage is shown, not described in passing', (
+    tester,
+  ) async {
+    serve(found);
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'AAA0000002401');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
+    await tester.pumpAndSettle();
+
+    // Linked is not the same as gone, so the note's own stage is on the
+    // row, in the pill the dispatch list uses.
+    expect(find.text('Final · 2/5'), findsOneWidget);
+    expect(find.textContaining('note is Final'), findsNothing);
+  });
+
+  testWidgets('the issuance figures name what they count', (tester) async {
+    serve(found);
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '2401');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
+    await tester.pumpAndSettle();
+
+    // They belong to the issuance, not to the label: "9,600 issued ·
+    // 1,200 unused" read as though this label had never been used.
+    expect(
+      find.text('9,600 labels in this issuance · 1,200 of them still unused'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a label that has gone no further keeps its rows', (
