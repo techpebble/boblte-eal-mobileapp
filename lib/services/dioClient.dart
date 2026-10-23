@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/config/api_config.dart';
+import 'package:eal_scanner/config/app_version.dart';
 import 'package:eal_scanner/screens/login.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/utils/api_error.dart';
@@ -24,6 +25,10 @@ class DioClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Which build is asking. The server turns away one too old to be
+          // writing records, and reads a request with no version as that.
+          options.headers.addAll(AppVersion.headers);
+
           final authToken = AuthService.token;
           if (authToken != null && authToken.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $authToken';

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/config/api_config.dart';
+import 'package:eal_scanner/config/app_version.dart';
 import 'package:eal_scanner/utils/api_error.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -71,7 +72,7 @@ class AuthService {
       final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 8)));
       final response = await dio.get(
         ApiConfig.endpoint('auth/getUser'),
-        options: Options(headers: {'Authorization': 'Bearer $authToken'}),
+        options: Options(headers: AppVersion.headersWithToken(authToken)),
       );
 
       final data = response.data;
@@ -110,6 +111,9 @@ class AuthService {
       final response = await dio.post(
         url,
         data: {'email': email, 'password': password},
+        // Sign-in carries the version too, so an out-of-date app is told
+        // here rather than after the operator has started working.
+        options: Options(headers: AppVersion.headers),
       );
 
       if (response.statusCode == 200) {
