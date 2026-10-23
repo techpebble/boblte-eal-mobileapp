@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import 'package:eal_scanner/controllers/findEalController.dart';
 import 'package:eal_scanner/models/eal_trace.dart';
+import 'package:eal_scanner/screens/find_eal_book_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_target.dart';
 import 'package:eal_scanner/screens/scan/scanner_camera.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
@@ -12,13 +13,16 @@ import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:eal_scanner/widgets/ui/serial_text.dart';
 
-/// One label, and everywhere it has been.
+/// One label, and everywhere it has been — once it is clear which label.
 ///
-/// Every other screen in the app starts from a module — a date, an item, a
-/// note. A label in the hand has none of those: it has a number, and the
-/// question asked of it is where it came from and where it went. That is
-/// this screen, and it is why it sits on the home page rather than inside
-/// one of the three lists.
+/// Every other screen in the app starts from a module: a date, an item, a
+/// note. A label in the hand has none of those. It has a number, and the
+/// question asked of it is where it came from and where it went.
+///
+/// The number alone does not answer it. A serial is unique within a book,
+/// not across them, so this screen asks which book: it lists the ones that
+/// carry the number, with the pack each is for, and the reading happens on
+/// the screen after. Where only one book carries it, that step is skipped.
 class FindEalScreen extends StatefulWidget {
   const FindEalScreen({super.key});
 
@@ -38,9 +42,29 @@ class _FindEalScreenState extends State<FindEalScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     _focus.unfocus();
-    _controller.search();
+    final only = await _controller.search();
+
+    if (!mounted || only == null) return;
+
+    // One book, so there is nothing to choose: go straight to it.
+    _open(only);
+  }
+
+  void _open(TraceIssuance book) {
+    Get.to(
+      () => FindEalBookScreen(
+        book: book,
+        serial:
+            int.tryParse(
+              _controller.query.value.replaceAll(RegExp(r'[^0-9]'), ''),
+            ) ??
+            0,
+        prefix: book.prefix,
+        otherBooks: _controller.books.length,
+      ),
+    );
   }
 
   /// Scanning fills the same field, so the answer comes from one place
@@ -202,7 +226,7 @@ class _FindEalScreenState extends State<FindEalScreen> {
 
   Widget _result() {
     if (_controller.isOffline.value) {
-      return OfflineState(what: 'this label', onRetry: _controller.search);
+      return OfflineState(what: 'this label', onRetry: _submit);
     }
 
     if (_controller.errorMessage.value.isNotEmpty) {
@@ -212,10 +236,7 @@ class _FindEalScreenState extends State<FindEalScreen> {
           level: NoticeLevel.error,
           title: 'That did not work',
           message: _controller.errorMessage.value,
-          trailing: TextButton(
-            onPressed: _controller.search,
-            child: const Text('Retry'),
-          ),
+          trailing: TextButton(onPressed: _submit, child: const Text('Retry')),
         ),
       );
     }
@@ -231,9 +252,9 @@ class _FindEalScreenState extends State<FindEalScreen> {
       );
     }
 
-    final trace = _controller.result.value;
+    final books = _controller.books;
 
-    if (trace == null) {
+    if (books.isEmpty) {
       return const EmptyState(
         icon: Icons.qr_code_2_rounded,
         title: 'Type the number, or scan the label',
@@ -244,27 +265,6 @@ class _FindEalScreenState extends State<FindEalScreen> {
       );
     }
 
-    return _Trace(trace: trace);
-  }
-}
-
-/// The answer: the three stages a label passes through, in order.
-class _Trace extends StatelessWidget {
-  const _Trace({required this.trace});
-
-  final EalTrace trace;
-
-  @override
-  Widget build(BuildContext context) {
-    final issuance = trace.issuances.isEmpty ? null : trace.issuances.first;
-
-    // A serial is unique within an issuance, not across them: the same
-    // number can sit in a 180ml book and a 1000ml book, both from the
-    // same prefix. Where it does, every one of them is drawn, because
-    // picking the first said "9,000 issued, 9,000 unused" beside a run
-    // that had drawn its labels from the other.
-    final several = trace.issuances.length > 1;
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpace.gutter,
@@ -273,372 +273,109 @@ class _Trace extends StatelessWidget {
         AppSpace.xxl,
       ),
       children: [
-        // What the label is, before where it has been. The pack belongs to
-        // each issuance below, since they may differ.
-        if (issuance != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: SerialRangeText(
-                  prefix: trace.prefix,
-                  from: trace.serial,
-                  to: trace.serial,
-                  size: 15,
-                ),
-              ),
-              if (issuance.market.isNotEmpty) MarketChip(issuance.market),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(issuance.companyName, style: AppText.small),
-          const SizedBox(height: AppSpace.lg),
-        ],
-
-        if (several) ...[
-          NoticeBanner(
-            level: NoticeLevel.info,
-            title: '${trace.issuances.length} issuances carry this number',
-            message:
-                'A serial is unique within a book, not across them. Both '
-                'are listed, with the pack each one is for.',
-          ),
-          const SizedBox(height: AppSpace.lg),
-        ],
-
-        const SectionHeading('This label'),
-        const SizedBox(height: 9),
-
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final record in trace.issuances)
-                _Stage(
-                  icon: Icons.assignment_turned_in_outlined,
-                  tint: AppColors.indigoTint,
-                  accent: AppColors.indigo,
-                  title: 'Issued',
-                  date: record.date,
-                  enteredBy: record.enteredBy,
-                  enteredAt: record.enteredAt,
-                  lines: [
-                    if (record.packName != '—')
-                      '${record.packName}'
-                          '${record.bottlesPerCase > 0 ? ' · ${record.bottlesPerCase} per case' : ''}',
-                    // These figures belong to the issuance this label came
-                    // out of, not to the label, so the sentence names what
-                    // is counted: "9,000 issued · 9,000 unused" read as
-                    // though nothing had been used even when this very
-                    // label had been.
-                    '${formatLabels(record.issuedQuantity)} in this '
-                        'issuance · ${formatQty(record.balanceQuantity)} '
-                        'of them still unused',
-                  ],
-                  range: (from: record.serialFrom, to: record.serialTo),
-                  prefix: trace.prefix,
-                  isLast: false,
-                ),
-
-              if (trace.wasUsed)
-                for (final run in trace.runs)
-                  _Stage(
-                    icon: Icons.factory_outlined,
-                    tint: AppColors.tealTint,
-                    accent: AppColors.teal,
-                    title: 'Applied',
-                    date: run.date,
-                    enteredBy: run.enteredBy,
-                    enteredAt: run.enteredAt,
-                    lines: [
-                      run.itemName,
-                      '${formatCases(run.cases)} on this run'
-                          '${run.waitingCases > 0 ? ' · ${formatQty(run.waitingCases)} still waiting' : ''}',
-                    ],
-                    range: (from: run.serialFrom, to: run.serialTo),
-                    prefix: trace.prefix,
-                    isLast: false,
-                  )
-              else
-                const _StageNotYet(
-                  icon: Icons.factory_outlined,
-                  title: 'Not applied yet',
-                  message: 'No production run has used this label.',
-                  isLast: false,
-                ),
-
-              if (trace.wasDispatched)
-                for (var i = 0; i < trace.dispatches.length; i++)
-                  _Stage(
-                    icon: Icons.local_shipping_outlined,
-                    tint: AppColors.amberTint,
-                    accent: AppColors.amber,
-                    title: 'Dispatched',
-                    date: trace.dispatches[i].date,
-                    enteredBy: trace.dispatches[i].enteredBy,
-                    enteredAt: trace.dispatches[i].enteredAt,
-                    enteredVerb: 'linked',
-                    // Where the note has got to. Linked is not the same as
-                    // gone: a label on a note still at Final has not left
-                    // the plant.
-                    badge: trace.dispatches[i].status.isEmpty
-                        ? null
-                        : DispatchStatusPill(trace.dispatches[i].status),
-                    lines: [
-                      if (trace.dispatches[i].depotName.isNotEmpty)
-                        trace.dispatches[i].depotName,
-                      '${formatCases(trace.dispatches[i].cases)} linked',
-                    ],
-                    range: (
-                      from: trace.dispatches[i].serialFrom,
-                      to: trace.dispatches[i].serialTo,
-                    ),
-                    prefix: trace.prefix,
-                    isLast: i == trace.dispatches.length - 1,
-                  )
-              else
-                const _StageNotYet(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'Not dispatched yet',
-                  message: 'Still in finished stock.',
-                  isLast: true,
-                ),
-            ],
+        // A sentence, not a section label: these are set in capitals
+        // elsewhere, and "2 BOOKS CARRY THIS NUMBER" reads as shouting.
+        Text(
+          books.length == 1
+              ? 'One book carries this number'
+              : '${books.length} books carry this number',
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink900,
           ),
         ),
+        const SizedBox(height: 3),
+        Text(
+          books.length == 1
+              ? 'Open it to see where this label has been.'
+              : 'A serial is unique within a book, not across them. Pick '
+                    'the one in your hand.',
+          style: AppText.small,
+        ),
+        const SizedBox(height: AppSpace.md),
+        for (final book in books) ...[
+          _BookCard(book: book, onTap: () => _open(book)),
+          const SizedBox(height: 10),
+        ],
       ],
     );
   }
 }
 
-/// A stage that happened, with the range it covers.
-///
-/// Two dates sit on one row and they are not the same thing. The record's
-/// own date — the day the labels were issued, applied or sent — belongs to
-/// the stage, so it is on the title line. The moment someone typed it into
-/// the app is a footnote under a hairline, with their name. Where the two
-/// differ, the footnote carries its date as well: a run typed up the next
-/// morning is worth seeing.
-class _Stage extends StatelessWidget {
-  const _Stage({
-    required this.icon,
-    required this.tint,
-    required this.accent,
-    required this.title,
-    required this.date,
-    required this.lines,
-    required this.range,
-    required this.prefix,
-    required this.isLast,
-    required this.enteredBy,
-    required this.enteredAt,
-    this.enteredVerb = 'entered',
-    this.badge,
-  });
+/// One book that carries the number: enough of it to recognise the one in
+/// the hand — the prefix, the pack, when it was issued, and how much of it
+/// is left.
+class _BookCard extends StatelessWidget {
+  const _BookCard({required this.book, required this.onTap});
 
-  final IconData icon;
-  final Color tint;
-  final Color accent;
-  final String title;
-  final DateTime? date;
-  final List<String> lines;
-  final ({int from, int to})? range;
-  final String prefix;
-  final bool isLast;
-  final String enteredBy;
-  final DateTime? enteredAt;
-
-  /// "entered" for a record someone keyed in, "linked" for labels put
-  /// against a dispatch line.
-  final String enteredVerb;
-
-  /// Sits above the detail lines, for a stage that has a state of its own.
-  final Widget? badge;
-
-  String get _entry {
-    if (enteredAt == null) return enteredBy;
-
-    final sameDay =
-        date != null &&
-        date!.year == enteredAt!.year &&
-        date!.month == enteredAt!.month &&
-        date!.day == enteredAt!.day;
-
-    final when = sameDay
-        ? formatClock(enteredAt!)
-        : '${formatDayMonth(enteredAt!)}, ${formatClock(enteredAt!)}';
-
-    return enteredBy.isEmpty
-        ? '$enteredVerb $when'
-        : '$enteredBy · $enteredVerb $when';
-  }
+  final TraceIssuance book;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : const Border(
-                bottom: BorderSide(color: AppColors.lineSoft, width: 1),
-              ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink900,
-                        ),
-                      ),
-                    ),
-                    if (date != null) ...[
-                      const SizedBox(width: 10),
-                      Text(
-                        formatDayMonthYear(date!),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.ink500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (range != null) ...[
-                  const SizedBox(height: 3),
-                  SerialRangeText(
-                    prefix: prefix,
-                    from: range!.from,
-                    to: range!.to,
-                    size: 11.5,
-                    showPrefix: false,
-                    color: AppColors.ink700,
-                  ),
-                ],
-                if (badge != null) ...[const SizedBox(height: 6), badge!],
-                for (final line in lines)
-                  if (line.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(line, style: AppText.micro),
-                  ],
-
-                // The footnote: smaller, paler, and set apart, because it
-                // is about the record rather than about the labels.
-                Container(
-                  margin: const EdgeInsets.only(top: 7),
-                  padding: const EdgeInsets.only(top: 7),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AppColors.lineSoft, width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.person_outline_rounded,
-                        size: 12,
-                        color: AppColors.ink400,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          _entry,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            color: AppColors.ink400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A stage that has not happened. It keeps its row rather than leaving a
-/// gap: "not dispatched yet" is the answer as often as a depot name is.
-class _StageNotYet extends StatelessWidget {
-  const _StageNotYet({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.isLast,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
+      onTap: onTap,
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : const Border(
-                bottom: BorderSide(color: AppColors.lineSoft, width: 1),
-              ),
-      ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.field,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.ink400),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+          Row(
+            children: [
+              if (book.prefix.isNotEmpty) ...[
+                SerialPrefixChip(book.prefix),
+                const SizedBox(width: 9),
+              ],
+              Expanded(
+                child: Text(
+                  book.packLabel,
                   style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.ink500,
+                    color: AppColors.ink900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.ink400,
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          SerialRangeText(
+            prefix: book.prefix,
+            from: book.serialFrom,
+            to: book.serialTo,
+            size: 11.5,
+            showPrefix: false,
+            color: AppColors.ink700,
+          ),
+          const SizedBox(height: 3),
+          Text.rich(
+            TextSpan(
+              style: AppText.micro,
+              children: [
+                TextSpan(
+                  text: book.date == null
+                      ? 'Issued'
+                      : 'Issued ${formatDayMonthYear(book.date!)}',
+                ),
+                const TextSpan(text: ' · '),
+                TextSpan(
+                  text: formatQty(book.balanceQuantity),
+                  style: AppText.mono(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: AppColors.ink700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(message, style: AppText.micro),
+                TextSpan(
+                  text: ' of ${formatQty(book.issuedQuantity)} still unused',
+                ),
               ],
             ),
           ),

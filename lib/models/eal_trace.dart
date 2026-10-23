@@ -105,6 +105,8 @@ class TraceIssuance {
   const TraceIssuance({
     required this.enteredBy,
     required this.enteredAt,
+    required this.packId,
+    required this.prefix,
     required this.id,
     required this.date,
     required this.serialFrom,
@@ -118,6 +120,11 @@ class TraceIssuance {
   });
 
   final String id;
+
+  /// The pack this book belongs to. A serial is unique within a book, not
+  /// across them, so this is what the second request narrows by.
+  final String packId;
+
   final DateTime? date;
   final int serialFrom;
   final int serialTo;
@@ -128,11 +135,19 @@ class TraceIssuance {
   final int bottlesPerCase;
   final String market;
 
+  /// The three letters printed before the digits. A book is named by its
+  /// prefix as much as by its pack.
+  final String prefix;
+
   /// The person who recorded it, and the moment they did — which is not
   /// the record's own date: a run worked at night is typed up the next
   /// morning, and the gap is worth seeing.
   final String enteredBy;
   final DateTime? enteredAt;
+
+  /// How the book is named on screen: the pack, and what a case holds.
+  String get packLabel =>
+      bottlesPerCase > 0 ? '$packName · $bottlesPerCase per case' : packName;
 
   factory TraceIssuance.fromJson(Map<String, dynamic> json) {
     final pack = json['pack'];
@@ -140,6 +155,8 @@ class TraceIssuance {
     return TraceIssuance(
       enteredBy: EalTrace._person(json['createdBy']),
       enteredAt: EalTrace._date(json['createdAt']),
+      packId: pack is Map ? '${pack['_id'] ?? pack['id'] ?? ''}' : '',
+      prefix: '${json['prefix'] ?? ''}',
       id: '${json['id'] ?? json['_id'] ?? ''}',
       date: EalTrace._date(json['dateIssued']),
       serialFrom: EalTrace._int(json['serialFrom']),

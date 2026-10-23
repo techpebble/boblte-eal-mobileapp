@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/controllers/findEalController.dart';
+import 'package:eal_scanner/screens/find_eal_book_screen.dart';
 import 'package:eal_scanner/screens/find_eal_screen.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +42,7 @@ void main() {
           'createdBy': {'fullName': 'Priya Nair'},
           'createdAt': '2026-10-20T08:12:00.000Z',
           'market': 'local',
-          'pack': {'name': '180ml', 'bottlesPerCase': 48},
+          'pack': {'_id': 'p180', 'name': '180ml', 'bottlesPerCase': 48},
           'prefix': 'AAA',
         },
       ],
@@ -81,8 +82,19 @@ void main() {
     },
   };
 
+  late _FixedAdapter adapter;
+
   void serve(Object body, {int status = 200}) {
-    DioClient().dio.httpClientAdapter = _FixedAdapter(body, status);
+    adapter = _FixedAdapter(body, status);
+    DioClient().dio.httpClientAdapter = adapter;
+  }
+
+  /// Types a number and runs the search.
+  Future<void> look(WidgetTester tester, String number) async {
+    await tester.enterText(find.byType(TextField), number);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> pump(WidgetTester tester) async {
@@ -109,37 +121,77 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('a label reads as its three stages, in order', (tester) async {
+  testWidgets('one book goes straight to the reading', (tester) async {
     serve(found);
     await pump(tester);
+    await look(tester, 'AAA0000002401');
 
-    await tester.enterText(find.byType(TextField), 'AAA0000002401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
-
-    // The stage, and its own date beside it rather than inside the title.
+    // Nothing to choose between, so the chooser is skipped.
+    expect(find.byType(FindEalBookScreen), findsOneWidget);
     expect(find.text('Issued'), findsOneWidget);
     expect(find.text('Applied'), findsOneWidget);
     expect(find.text('Dispatched'), findsOneWidget);
-    expect(find.text('20 Oct 2026'), findsOneWidget);
-    expect(find.text('22 Oct 2026'), findsNWidgets(2));
 
-    // Each stage carries what it is: the item it was stuck on, and the
-    // depot it went to.
-    expect(find.text('Old Monk Gold Reserve 180ml'), findsOneWidget);
-    expect(find.text('KSBCL Depot - Attibele'), findsOneWidget);
-    expect(find.textContaining('30 cases linked'), findsOneWidget);
+    // And the reading was asked for by book, not by number alone.
+    expect(adapter.queries.last['pack'], 'p180');
+  });
+
+  testWidgets('two books are listed, and neither is read until picked', (
+    tester,
+  ) async {
+    // A serial is unique within a book, not across them: on this server
+    // 2000 sits in a 180ml book and a 1000ml one.
+    final body = found['respondData'] as Map<String, dynamic>;
+    serve({
+      'respondData': {
+        ...body,
+        'issuance': [
+          ...(body['issuance'] as List),
+          {
+            'id': 'i2',
+            'dateIssued': '2026-10-22T00:00:00.000Z',
+            'serialFrom': 1,
+            'serialTo': 9000,
+            'issuedQuantity': 9000,
+            'balanceQuantity': 9000,
+            'company': {'name': 'Blue Ocean Beverages Pvt. Ltd.'},
+            'createdBy': {'fullName': 'Demo User'},
+            'createdAt': '2026-10-23T02:35:00.000Z',
+            'market': 'local',
+            'pack': {'_id': 'p1000', 'name': '1000ml', 'bottlesPerCase': 9},
+            'prefix': 'AAA',
+          },
+        ],
+      },
+    });
+    await pump(tester);
+    await look(tester, '2000');
+
+    expect(find.text('2 books carry this number'), findsOneWidget);
+    expect(find.text('180ml · 48 per case'), findsOneWidget);
+    expect(find.text('1000ml · 9 per case'), findsOneWidget);
+
+    // Nothing is reported until one of them is chosen: picking for the
+    // operator is what put a book with nothing used above a run that had
+    // drawn from the other.
+    expect(find.text('Issued'), findsNothing);
+    expect(find.byType(FindEalBookScreen), findsNothing);
+
+    await tester.tap(find.text('1000ml · 9 per case'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FindEalBookScreen), findsOneWidget);
+    expect(adapter.queries.last['pack'], 'p1000');
+
+    // The reading names the book it came from, and the way back.
+    expect(find.textContaining('Reading the '), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
   });
 
   testWidgets('each stage says who recorded it, and when', (tester) async {
     serve(found);
     await pump(tester);
-
-    await tester.enterText(find.byType(TextField), 'AAA0000002401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
+    await look(tester, 'AAA0000002401');
 
     // Entered the same day as the record's own date: the time alone.
     expect(find.text('Priya Nair · entered 08:12'), findsOneWidget);
@@ -155,99 +207,37 @@ void main() {
   ) async {
     serve(found);
     await pump(tester);
+    await look(tester, 'AAA0000002401');
 
-    await tester.enterText(find.byType(TextField), 'AAA0000002401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
-
-    // Linked is not the same as gone, so the note's own stage is on the
-    // row, in the pill the dispatch list uses.
     expect(find.text('Final · 2/5'), findsOneWidget);
     expect(find.textContaining('note is Final'), findsNothing);
   });
 
-  testWidgets('the issuance figures name what they count', (tester) async {
+  testWidgets('the figures name the book they count', (tester) async {
     serve(found);
     await pump(tester);
+    await look(tester, '2401');
 
-    await tester.enterText(find.byType(TextField), '2401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
-
-    // They belong to the issuance, not to the label: "9,600 issued ·
-    // 1,200 unused" read as though this label had never been used.
     expect(
-      find.text('9,600 labels in this issuance · 1,200 of them still unused'),
+      find.text('9,600 labels in this book · 1,200 of them still unused'),
       findsOneWidget,
     );
-  });
-
-  testWidgets('every issuance that carries the number is shown', (
-    tester,
-  ) async {
-    // A serial is unique within a book, not across them: on this server
-    // 2000 sits in a 180ml book and a 1000ml one. Drawing only the first
-    // put "9,000 issued · 9,000 unused" beside a run that had taken its
-    // labels from the other.
-    final body = found['respondData'] as Map<String, dynamic>;
-    final twoBooks = {
-      'respondData': {
-        ...body,
-        'issuance': [
-          ...(body['issuance'] as List),
-          {
-            'id': 'i2',
-            'dateIssued': '2026-10-17T00:00:00.000Z',
-            'serialFrom': 1,
-            'serialTo': 288000,
-            'issuedQuantity': 288000,
-            'balanceQuantity': 278400,
-            'company': {'name': 'Blue Ocean Beverages Pvt. Ltd.'},
-            'createdBy': {'fullName': 'Priya Nair'},
-            'createdAt': '2026-10-17T07:40:00.000Z',
-            'market': 'local',
-            'pack': {'name': '1000ml', 'bottlesPerCase': 9},
-            'prefix': 'AAA',
-          },
-        ],
-      },
-    };
-    serve(twoBooks);
-    await pump(tester);
-
-    await tester.enterText(find.byType(TextField), 'AAA0000002401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Issued'), findsNWidgets(2));
-    expect(find.text('2 issuances carry this number'), findsOneWidget);
-
-    // Each one says which pack it is for, so they can be told apart.
-    expect(find.text('180ml · 48 per case'), findsOneWidget);
-    expect(find.text('1000ml · 9 per case'), findsOneWidget);
   });
 
   testWidgets('a label that has gone no further keeps its rows', (
     tester,
   ) async {
-    final issuedOnly = {
+    final body = found['respondData'] as Map<String, dynamic>;
+    serve({
       'respondData': {
-        ...(found['respondData'] as Map<String, dynamic>),
+        ...body,
         'usage': <dynamic>[],
         'ealDispatches': <dynamic>[],
         'dispatches': <dynamic>[],
       },
-    };
-    serve(issuedOnly);
+    });
     await pump(tester);
-
-    await tester.enterText(find.byType(TextField), '2401');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
+    await look(tester, '2401');
 
     // Not a gap to interpret: the rows stay and say what has not happened.
     expect(find.text('Not applied yet'), findsOneWidget);
@@ -260,11 +250,7 @@ void main() {
   ) async {
     serve({'error': 'EAL issuance not found'}, status: 404);
     await pump(tester);
-
-    await tester.enterText(find.byType(TextField), '999999');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
-    await tester.pumpAndSettle();
+    await look(tester, '999999');
 
     expect(find.text('Nothing issued with this number'), findsOneWidget);
     expect(find.textContaining('another company'), findsOneWidget);
@@ -282,12 +268,14 @@ void main() {
   });
 }
 
-/// Answers every request with one body and one status.
+/// Answers every request with one body and one status, and keeps what it
+/// was asked, so a test can show the second request named a pack.
 class _FixedAdapter implements HttpClientAdapter {
   _FixedAdapter(this.body, this.status);
 
   final Object body;
   final int status;
+  final List<Map<String, dynamic>> queries = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -295,6 +283,8 @@ class _FixedAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    queries.add(Map<String, dynamic>.from(options.queryParameters));
+
     return ResponseBody.fromString(
       jsonEncode(body),
       status,
