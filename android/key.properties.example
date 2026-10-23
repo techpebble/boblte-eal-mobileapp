@@ -1,0 +1,14 @@
+# Copy to android/key.properties and fill in. Both files stay out of git:
+# android/.gitignore already covers key.properties, *.jks and *.keystore.
+#
+# Make the keystore first, somewhere outside the repository:
+#
+#   keytool -genkey -v -keystore ~/eal-track-upload.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Keep it and these passwords safe: Play ties the app to the key that signed
+# its first upload, and a lost upload key means asking Google to reset it.
+storeFile=/Users/you/eal-track-upload.jks
+storePassword=
+keyAlias=upload
+keyPassword=

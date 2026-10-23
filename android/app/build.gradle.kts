@@ -1,3 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+// The upload key lives outside the repository: android/key.properties names
+// the keystore and carries its passwords, and .gitignore keeps both out of
+// git. Without that file a release build falls back to the debug key, which
+// keeps `flutter run --release` working on a bench but is refused by Play.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(FileInputStream(keystorePropertiesFile))
+    }
+}
+val hasUploadKey = keystorePropertiesFile.exists()
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -29,6 +44,15 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("upload") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = keystoreProperties.getProperty("storePassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let(::file)
+        }
+    }
+
     buildTypes {
         debug {
             // Installs beside the real app rather than replacing it, so a
@@ -37,9 +61,13 @@ android {
         }
 
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with the upload key where there is one. A bundle for
+            // Play has to carry it: the console refuses a debug
+            // certificate, and the key that signs the first upload is the
+            // one every later version has to be signed with.
+            signingConfig = signingConfigs.getByName(
+                if (hasUploadKey) "upload" else "debug"
+            )
         }
     }
 }
