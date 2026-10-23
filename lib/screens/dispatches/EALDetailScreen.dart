@@ -174,6 +174,7 @@ class _EALDetailScreenState extends State<EALDetailScreen> {
               prefix: draft.prefix,
               serialFrom: draft.serialFrom,
               serialTo: draft.serialTo,
+              enteredByHand: draft.typedByHand,
             ),
           ),
         ),

@@ -279,6 +279,10 @@ class UsageController extends GetxController {
     required String serialTo,
     required int usedQuantity,
     required int usedQuantityInCases,
+
+    /// Typed rather than scanned. The record keeps it, and a role without
+    /// scan:manual is refused: a transposed digit reads as a real label.
+    bool enteredByHand = false,
   }) async {
     final data = {
       "company": company,
@@ -291,6 +295,7 @@ class UsageController extends GetxController {
       "serialTo": serialTo,
       "usedQuantity": usedQuantity,
       "usedQuantityInCases": usedQuantityInCases,
+      "enteredByHand": enteredByHand,
     };
 
     try {

@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:eal_scanner/screens/scan/manual_serial_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_success_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_target.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/screens/scan/scanner_camera.dart';
 import 'package:eal_scanner/services/settingsService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
@@ -51,6 +52,10 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   bool _sending = false;
 
   ScanTarget get _target => widget.target;
+
+  /// Whether this role may type a serial instead of scanning it. The
+  /// server refuses the record otherwise, so the offer is not made.
+  bool get _mayTypeSerials => AuthService.can('scan:manual');
 
   /// What the caller already knows, and nothing else: the prefix is asked
   /// for as the wizard's first step, with the label in the hand, rather
@@ -630,23 +635,42 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                         ),
                       ),
                       // The fallback stays reachable but stops competing
-                      // with the scanner.
-                      SizedBox(
-                        height: AppSpace.touch,
-                        child: TextButton(
-                          onPressed: _needsPrefix
-                              ? null
-                              : () => _typeSerial(isFrom: _onFirstEnd),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.ink500,
-                            textStyle: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
+                      // with the scanner — and only for a role that may
+                      // type a serial at all. Typing is how a transposed
+                      // digit becomes a real label belonging to someone
+                      // else's run, so it is given out deliberately.
+                      if (_mayTypeSerials)
+                        SizedBox(
+                          height: AppSpace.touch,
+                          child: TextButton(
+                            onPressed: _needsPrefix
+                                ? null
+                                : () => _typeSerial(isFrom: _onFirstEnd),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.ink500,
+                              textStyle: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
+                            child: const Text('Label damaged? Type it by hand'),
                           ),
-                          child: const Text('Label damaged? Type it by hand'),
+                        )
+                      else
+                        // Said rather than hidden: an operator holding a
+                        // torn label needs to know what to do next.
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.lg,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            'A damaged label has to be typed in by someone '
+                            'who may do that. Ask a supervisor.',
+                            textAlign: TextAlign.center,
+                            style: AppText.small,
+                          ),
                         ),
-                      ),
                       if (_needsPrefix)
                         Text(
                           'Enter the three-character prefix first',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/services/settingsService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/widgets/ui/serial_text.dart';
@@ -187,23 +188,27 @@ class _ScannerCameraState extends State<ScannerCamera> {
                       const SizedBox(height: 10),
                       // Quiet by design: typing a serial is the fallback, and
                       // a solid button here competed with the scanner itself.
-                      SizedBox(
-                        height: AppSpace.touch,
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(
-                            context,
-                            const ScannerAskedToType(),
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.scannerMuted,
-                            textStyle: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
+                      // Only where the role may type a serial at all. The
+                      // step screen behind this one says what to do when
+                      // it may not, so the camera stays uncluttered.
+                      if (AuthService.can('scan:manual'))
+                        SizedBox(
+                          height: AppSpace.touch,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(
+                              context,
+                              const ScannerAskedToType(),
                             ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.scannerMuted,
+                              textStyle: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            child: const Text('Label damaged? Type it by hand'),
                           ),
-                          child: const Text('Label damaged? Type it by hand'),
                         ),
-                      ),
                     ],
                   ),
                 ),

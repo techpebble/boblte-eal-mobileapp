@@ -126,6 +126,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
                 serialTo: draft.serialTo,
                 usedQuantity: labels,
                 usedQuantityInCases: cases,
+                enteredByHand: draft.typedByHand,
               );
             },
           ),

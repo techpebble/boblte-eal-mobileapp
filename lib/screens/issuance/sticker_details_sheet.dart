@@ -172,6 +172,7 @@ class _StickerDetailsSheetState extends State<StickerDetailsSheet> {
               serialFrom: draft.serialFrom,
               serialTo: draft.serialTo,
               issuedQuantity: draft.labels,
+              enteredByHand: draft.typedByHand,
             ),
           ),
         ),

@@ -247,6 +247,10 @@ class Issuancecontroller extends GetxController {
     required String serialFrom,
     required String serialTo,
     required int issuedQuantity,
+
+    /// Typed rather than scanned. The record keeps it, and a role without
+    /// scan:manual is refused: a transposed digit reads as a real label.
+    bool enteredByHand = false,
   }) async {
     final data = {
       "company": company?.id,
@@ -257,6 +261,7 @@ class Issuancecontroller extends GetxController {
       "serialFrom": serialFrom,
       "serialTo": serialTo,
       "issuedQuantity": issuedQuantity,
+      "enteredByHand": enteredByHand,
     };
 
     try {

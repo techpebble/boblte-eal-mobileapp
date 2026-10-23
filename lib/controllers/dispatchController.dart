@@ -199,6 +199,10 @@ class DispatchController extends GetxController {
     required String prefix,
     required String serialFrom,
     required String serialTo,
+
+    /// Typed rather than scanned. The record keeps it, and a role without
+    /// scan:manual is refused: a transposed digit reads as a real label.
+    bool enteredByHand = false,
   }) async {
     isLoading.value = true;
 
@@ -208,6 +212,7 @@ class DispatchController extends GetxController {
       "prefix": prefix.toUpperCase(),
       "serialFrom": serialFrom,
       "serialTo": serialTo,
+      "enteredByHand": enteredByHand,
     };
 
     try {
