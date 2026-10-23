@@ -181,6 +181,19 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
       return;
     }
 
+    // A code that carries a whole range is a real EAL label, but only an
+    // issuance may be recorded from one: a run uses part of a book, so
+    // its ends have to be scanned off the cases that were filled.
+    if (!_target.allowRangeQr && EalQrCodec.looksLikeRange(raw)) {
+      setState(
+        () => _error =
+            'That code carries a whole range, which only an issuance can '
+            'be recorded from. Scan the first and last label of the run '
+            'instead.',
+      );
+      return;
+    }
+
     // Some issuance labels carry the whole range in one code.
     if (_target.allowRangeQr && EalQrCodec.looksLikeRange(raw)) {
       final range = EalQrCodec.readRange(raw);
@@ -208,10 +221,30 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
 
     final scanned = EalQrCodec.readSingle(raw);
     if (scanned == null) {
+      // What was read, so a supervisor can tell a carton barcode from a
+      // label the app failed to parse. Saying only "not an EAL code"
+      // left an operator with nothing to report.
+      final excerpt = raw.length > 28 ? '${raw.substring(0, 28)}…' : raw;
       setState(
         () => _error =
-            'That is not an EAL label code. Check you are scanning '
-            'the excise label and not the carton barcode.',
+            'That code does not read as an EAL label: "$excerpt". Check '
+            'you are scanning the excise label and not the carton '
+            'barcode.',
+      );
+      return;
+    }
+
+    // The label's own prefix, where it carries one. An operator types a
+    // prefix before scanning, and a label out of another book reads as a
+    // perfectly good number underneath it — which is how a range ends up
+    // recorded against the wrong one.
+    final onLabel = EalQrCodec.prefixOf(raw);
+    if (onLabel != null && onLabel != _draft.prefix.toUpperCase()) {
+      setState(
+        () => _error =
+            'That label is from book $onLabel, and this entry is for '
+            '${_draft.prefix}. Change the prefix above, or scan a label '
+            'from ${_draft.prefix}.',
       );
       return;
     }

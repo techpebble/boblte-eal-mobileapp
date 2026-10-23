@@ -198,24 +198,42 @@ class ScanDraft {
 class EalQrCodec {
   EalQrCodec._();
 
+  /// Case-insensitive, and the prefix may carry a dash or a dot: labels
+  /// come from several presses and they are not all printed the same way.
+  /// The serial is held to eight to twelve digits rather than exactly ten,
+  /// because a press that drops a leading zero still prints a real label.
   static final RegExp _single = RegExp(
-    r'^([A-Z0-9]+)\|(\d{10})\|(\d{10})\|(\d{10})\|(\d+)\|(\d+)$',
+    r'^([A-Za-z0-9.\-]+)\|(\d{8,12})\|(\d{8,12})\|(\d{8,12})\|(\d+)\|(\d+)$',
   );
 
-  static final RegExp _range = RegExp(r'^(\d{10})_(\d{10})_.*[|~]\d*\|?$');
+  static final RegExp _range = RegExp(r'^(\d{8,12})_(\d{8,12})_.*[|~]\d*\|?$');
+
+  /// A payload as it comes off the camera: a code often carries a trailing
+  /// newline, and a label held at an angle can pick up a leading space.
+  /// Neither is a reason to refuse it.
+  static String clean(String raw) => raw.trim();
 
   /// Pads a serial the way the API expects it.
   static String pad(int serial) => serial.toString().padLeft(10, '0');
 
   /// The serial printed on a single label.
   static int? readSingle(String raw) {
-    if (!_single.hasMatch(raw)) return null;
-    return int.tryParse(raw.split('|')[1]);
+    final value = clean(raw);
+    if (!_single.hasMatch(value)) return null;
+    return int.tryParse(value.split('|')[1]);
+  }
+
+  /// The prefix the label itself carries, where it has one. The operator
+  /// types a prefix before scanning, and a label from another book reads
+  /// as a perfectly good number under it.
+  static String? prefixOf(String raw) {
+    final match = _single.firstMatch(clean(raw));
+    return match?.group(1)?.toUpperCase();
   }
 
   /// Both ends of a range, where the code carries them.
   static ({String from, String to})? readRange(String raw) {
-    final match = _range.firstMatch(raw);
+    final match = _range.firstMatch(clean(raw));
     if (match == null) return null;
 
     final from = match.group(1);
@@ -225,7 +243,7 @@ class EalQrCodec {
     return (from: from, to: to);
   }
 
-  static bool looksLikeRange(String raw) => _range.hasMatch(raw);
+  static bool looksLikeRange(String raw) => _range.hasMatch(clean(raw));
 
   /// A scanned code names the last bottle of its case, so the first serial of
   /// the run sits a full case earlier. This is the arithmetic the old screens

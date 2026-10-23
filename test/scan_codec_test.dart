@@ -36,6 +36,38 @@ void main() {
 
     test('a carton barcode or any other code is rejected', () {
       expect(EalQrCodec.readSingle('8901234567890'), isNull);
+
+      // What a press actually prints. None of these is a reason to tell
+      // an operator they are holding the wrong label.
+      expect(
+        EalQrCodec.readSingle('ML123|0000012012|0000012001|0000012012|12|1\n'),
+        12012,
+        reason: 'a code often carries a trailing newline',
+      );
+      expect(
+        EalQrCodec.readSingle(' ml-123|0000012012|0000012001|0000012012|12|1 '),
+        12012,
+        reason: 'lower case, a dash in the prefix, and stray spaces',
+      );
+      expect(
+        EalQrCodec.readSingle('ML123|012012|0000012001|0000012012|12|1'),
+        isNull,
+        reason: 'six digits is too short to be a serial',
+      );
+      expect(
+        EalQrCodec.readSingle('ML123|00012012|0000012001|0000012012|12|1'),
+        12012,
+        reason: 'a press that drops leading zeros still prints a label',
+      );
+
+      // And the book the label came out of, for checking it against the
+      // prefix the operator typed.
+      expect(EalQrCodec.prefixOf(payload), 'ML123');
+      expect(
+        EalQrCodec.prefixOf(' ml-123|0000012012|0000012001|0000012012|12|1'),
+        'ML-123',
+      );
+      expect(EalQrCodec.prefixOf('8901234567890'), isNull);
       expect(EalQrCodec.readSingle('ML123|12|34'), isNull);
       expect(EalQrCodec.readSingle(''), isNull);
     });
