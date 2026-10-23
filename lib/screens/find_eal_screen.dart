@@ -9,7 +9,6 @@ import 'package:eal_scanner/screens/scan/scan_target.dart';
 import 'package:eal_scanner/screens/scan/scanner_camera.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
-import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:eal_scanner/widgets/ui/serial_text.dart';
 
@@ -44,6 +43,7 @@ class _FindEalScreenState extends State<FindEalScreen> {
 
   Future<void> _submit() async {
     _focus.unfocus();
+    if (_readError.isNotEmpty) setState(() => _readError = '');
     final only = await _controller.search();
 
     if (!mounted || only == null) return;
@@ -69,6 +69,10 @@ class _FindEalScreenState extends State<FindEalScreen> {
 
   /// Scanning fills the same field, so the answer comes from one place
   /// however the number was obtained.
+  /// What a scanned code could not be read as, said on the page rather
+  /// than searched for.
+  String _readError = '';
+
   Future<void> _scan() async {
     final outcome = await Navigator.push<ScannerOutcome>(
       context,
@@ -83,20 +87,52 @@ class _FindEalScreenState extends State<FindEalScreen> {
       ),
     );
 
-    if (!mounted || outcome is! ScannerCaptured) return;
+    if (!mounted) return;
 
-    final raw = outcome.capture.barcodes.first.rawValue ?? '';
+    // The camera offers typing as a way past a torn label. Here that is
+    // the field on this screen, so the cursor goes to it; before, the
+    // camera closed and nothing happened at all.
+    if (outcome is ScannerAskedToType) {
+      _focus.requestFocus();
+      return;
+    }
+
+    if (outcome is! ScannerCaptured) return;
+
+    final barcodes = outcome.capture.barcodes;
+    final raw = barcodes.isEmpty ? '' : (barcodes.first.rawValue ?? '');
     final single = EalQrCodec.readSingle(raw);
     final range = EalQrCodec.readRange(raw);
 
-    final serial = single != null
-        ? EalQrCodec.pad(single)
-        : (range?.from ?? raw.trim());
+    if (single == null && range == null) {
+      // Searching for whatever the camera happened to read sent a carton
+      // barcode to the server, which answered that nothing was issued
+      // with that number — telling the operator their label is unknown
+      // when the app had simply not read it.
+      final excerpt = raw.trim().isEmpty
+          ? 'nothing'
+          : (raw.length > 28 ? '${raw.trim().substring(0, 28)}…' : raw.trim());
 
-    if (serial.isEmpty) return;
+      setState(
+        () => _readError =
+            'That code does not read as an EAL label: "$excerpt". Check '
+            'you are scanning the excise label and not the carton '
+            'barcode.',
+      );
+      return;
+    }
 
-    _field.text = serial;
-    _controller.query.value = serial;
+    // Prefix and serial together. The number alone does not name a label:
+    // the same serial sits in more than one book, and the prefix printed
+    // on the one in the hand is what tells them apart — so dropping it
+    // made every scan ask a question the label had already answered.
+    final serial = single != null ? EalQrCodec.pad(single) : range!.from;
+    final prefix = EalQrCodec.prefixOf(raw) ?? '';
+    final query = '$prefix$serial';
+
+    setState(() => _readError = '');
+    _field.text = query;
+    _controller.query.value = query;
     _submit();
   }
 
@@ -155,6 +191,7 @@ class _FindEalScreenState extends State<FindEalScreen> {
                                 onPressed: () {
                                   _field.clear();
                                   _controller.clear();
+                                  setState(() => _readError = '');
                                   _focus.requestFocus();
                                 },
                                 icon: const Icon(
@@ -225,6 +262,17 @@ class _FindEalScreenState extends State<FindEalScreen> {
   }
 
   Widget _result() {
+    if (_readError.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpace.gutter),
+        child: NoticeBanner(
+          title: 'That code was not read',
+          message: _readError,
+          trailing: TextButton(onPressed: _scan, child: const Text('Scan')),
+        ),
+      );
+    }
+
     if (_controller.isOffline.value) {
       return OfflineState(what: 'this label', onRetry: _submit);
     }

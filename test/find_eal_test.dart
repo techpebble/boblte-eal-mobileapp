@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/controllers/findEalController.dart';
 import 'package:eal_scanner/screens/find_eal_book_screen.dart';
+import 'package:eal_scanner/screens/scan/scan_target.dart';
 import 'package:eal_scanner/screens/find_eal_screen.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:flutter/material.dart';
@@ -255,6 +256,41 @@ void main() {
     expect(find.text('Nothing issued with this number'), findsOneWidget);
     expect(find.textContaining('another company'), findsOneWidget);
     expect(find.text('That did not work'), findsNothing);
+  });
+
+  testWidgets('a scan carries the prefix, not the digits alone', (
+    tester,
+  ) async {
+    // The label names its own book. Dropping the prefix made every scan
+    // ask a question the label in the hand had already answered.
+    serve(found);
+    await pump(tester);
+
+    const payload = 'AAA|0000002401|0000002354|0000002401|48|1';
+    expect(EalQrCodec.readSingle(payload), 2401);
+    expect(EalQrCodec.prefixOf(payload), 'AAA');
+
+    // What the screen would put in the field for that code.
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller, isNotNull);
+
+    field.controller!.text =
+        '${EalQrCodec.prefixOf(payload)}${EalQrCodec.pad(2401)}';
+    await tester.pumpAndSettle();
+
+    expect(find.text('AAA0000002401'), findsWidgets);
+    expect(field.controller!.text, 'AAA0000002401');
+  });
+
+  test('a code that is not a label does not become a search', () {
+    // It used to be sent as typed: the server answered that nothing was
+    // issued with that number, which reads as a verdict on the label
+    // rather than on the reading.
+    const cartonBarcode = '8901234567890';
+
+    expect(EalQrCodec.readSingle(cartonBarcode), isNull);
+    expect(EalQrCodec.readRange(cartonBarcode), isNull);
+    expect(EalQrCodec.prefixOf(cartonBarcode), isNull);
   });
 
   test('the query has to carry digits before anything is sent', () {
