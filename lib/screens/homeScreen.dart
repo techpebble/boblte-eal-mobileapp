@@ -6,9 +6,10 @@ import 'package:eal_scanner/controllers/dashboardController.dart';
 import 'package:eal_scanner/models/dashboard.dart';
 import 'package:eal_scanner/screens/connectionScreen.dart';
 import 'package:eal_scanner/screens/dispatches/dispatchListScreen.dart';
-import 'package:eal_scanner/screens/issuance/sticker_details_sheet.dart';
 import 'package:eal_scanner/screens/usages/EALStickerScreen.dart'
     as production_entry;
+import 'package:eal_scanner/screens/find_eal_screen.dart';
+import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -120,34 +121,6 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              Obx(
-                () => TextButton.icon(
-                  onPressed: controller.isLoading.value
-                      ? null
-                      : () => controller.fetch(background: true),
-                  icon: const Icon(
-                    Icons.refresh_rounded,
-                    size: 15,
-                    color: AppColors.onNavyMuted,
-                  ),
-                  label: Text(
-                    controller.lastUpdatedLabel,
-                    style: AppText.mono(
-                      size: 12,
-                      weight: FontWeight.w600,
-                      color: const Color(0xFFE6EEFB),
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.14),
-                    padding: const EdgeInsets.symmetric(horizontal: 11),
-                    minimumSize: const Size(0, 36),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.brPill,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -208,16 +181,21 @@ class _HomeBody extends StatelessWidget {
             ),
           ),
 
-        // The action people open the app to perform.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.gutter,
-            AppSpace.xl,
-            AppSpace.gutter,
-            0,
+        // The action people open the app to perform — where the role may
+        // trace a label at all. Without eal:trace the server refuses the
+        // lookup, so offering it would only lead to a refusal.
+        if (AuthService.can('eal:trace'))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.gutter,
+              AppSpace.xl,
+              AppSpace.gutter,
+              0,
+            ),
+            child: _FindEalCallToAction(
+              onTap: () => Get.to(() => const FindEalScreen()),
+            ),
           ),
-          child: _ScanCallToAction(onTap: () => _showScanDestinations(context)),
-        ),
 
         const SizedBox(height: AppSpace.xl),
         Padding(
@@ -336,75 +314,15 @@ class _HomeBody extends StatelessWidget {
     if (names.length == 2) return '${names[0]} and ${names[1]}';
     return '${names.take(2).join(', ')} and ${names.length - 2} more';
   }
-
-  void _showScanDestinations(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.gutter,
-            0,
-            AppSpace.gutter,
-            AppSpace.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('What are you scanning?', style: AppText.title),
-              const SizedBox(height: 6),
-              Text(
-                'A range has to attach to something, so pick where it belongs.',
-                style: AppText.small,
-              ),
-              const SizedBox(height: AppSpace.lg),
-              _ScanDestination(
-                icon: Icons.assignment_turned_in_outlined,
-                accent: AppColors.indigo,
-                tint: AppColors.indigoTint,
-                title: 'Labels received',
-                subtitle: 'Record a new issuance from the excise office',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  showStickerDetailsSheetForNext(context);
-                },
-              ),
-              const SizedBox(height: 10),
-              _ScanDestination(
-                icon: Icons.factory_outlined,
-                accent: AppColors.teal,
-                tint: AppColors.tealTint,
-                title: 'Production entry',
-                subtitle: 'Labels applied to a bottling run',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  Get.to(() => production_entry.EALStickerScreen());
-                },
-              ),
-              const SizedBox(height: 10),
-              _ScanDestination(
-                icon: Icons.local_shipping_outlined,
-                accent: AppColors.amber,
-                tint: AppColors.amberTint,
-                title: 'Dispatch link',
-                subtitle: 'Attach labels to a dispatch line',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  Get.to(() => const DispatchListScreen());
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _ScanCallToAction extends StatelessWidget {
-  const _ScanCallToAction({required this.onTap});
+/// What home is for: a label in the hand, and the question of where it has
+/// been. Recording is reached from the module that owns it — issuance,
+/// production, a dispatch line — each of which needs a date, an item or a
+/// note chosen first, so a scan button here could only ask which of the
+/// three was meant.
+class _FindEalCallToAction extends StatelessWidget {
+  const _FindEalCallToAction({required this.onTap});
 
   final VoidCallback onTap;
 
@@ -428,7 +346,7 @@ class _ScanCallToAction extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.qr_code_scanner_rounded,
+                  Icons.search_rounded,
                   size: 24,
                   color: Colors.white,
                 ),
@@ -439,7 +357,7 @@ class _ScanCallToAction extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Scan labels',
+                      'Find EAL',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
@@ -448,7 +366,7 @@ class _ScanCallToAction extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Link a serial range to a run or dispatch',
+                      'Where a label was issued, used and sent',
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.onBlueMuted,
@@ -464,60 +382,6 @@ class _ScanCallToAction extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ScanDestination extends StatelessWidget {
-  const _ScanDestination({
-    required this.icon,
-    required this.accent,
-    required this.tint,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color accent;
-  final Color tint;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, size: 21, color: accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppText.cardTitle),
-                const SizedBox(height: 2),
-                Text(subtitle, style: AppText.small, maxLines: 2),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 20,
-            color: AppColors.ink400,
-          ),
-        ],
       ),
     );
   }
