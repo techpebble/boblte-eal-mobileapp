@@ -52,13 +52,10 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
 
   ScanTarget get _target => widget.target;
 
-  String get _initialPrefix {
-    final given = widget.target.initialPrefix.trim().toUpperCase();
-    if (given.length == 3) return given;
-
-    final saved = SettingsService.defaultPrefix;
-    return saved.length == 3 ? saved : given;
-  }
+  /// What the caller already knows, and nothing else: the prefix is asked
+  /// for as the wizard's first step, with the label in the hand, rather
+  /// than remembered from a setting that has to be kept right.
+  String get _initialPrefix => widget.target.initialPrefix.trim().toUpperCase();
 
   /// A range carried by one QR code collapses the two scan steps into one.
   int get _stepCount => _draft.rangeFromSingleQr ? 2 : 3;

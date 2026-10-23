@@ -63,24 +63,16 @@ class ScannerCamera extends StatefulWidget {
 }
 
 class _ScannerCameraState extends State<ScannerCamera> {
-  late final MobileScannerController _controller = MobileScannerController();
   late bool _torchOn = SettingsService.torchByDefault;
-  bool _handled = false;
 
-  @override
-  void initState() {
-    super.initState();
-    if (_torchOn) {
-      // The controller rejects a torch call before the camera is up.
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        try {
-          await _controller.toggleTorch();
-        } catch (_) {
-          if (mounted) setState(() => _torchOn = false);
-        }
-      });
-    }
-  }
+  /// The torch is set here rather than toggled once the view is up: a
+  /// toggle raced the camera starting, the controller refused it before
+  /// the camera was running, and the switch quietly went back to off.
+  late final MobileScannerController _controller = MobileScannerController(
+    torchEnabled: _torchOn,
+  );
+
+  bool _handled = false;
 
   @override
   void dispose() {
@@ -104,8 +96,11 @@ class _ScannerCameraState extends State<ScannerCamera> {
     setState(() => _handled = true);
 
     if (SettingsService.scanFeedback) {
-      HapticFeedback.mediumImpact();
-      SystemSound.play(SystemSoundType.click);
+      // vibrate() and alert carry through where mediumImpact() and the
+      // keypress click do not: both of those follow the phone's touch
+      // feedback settings, which are off on most of these handsets.
+      HapticFeedback.vibrate();
+      SystemSound.play(SystemSoundType.alert);
     }
 
     // A beat on the green frame, so the read is visible before the screen goes.

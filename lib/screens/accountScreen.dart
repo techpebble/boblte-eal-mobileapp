@@ -7,6 +7,7 @@ import 'package:eal_scanner/controllers/dashboardController.dart';
 import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/services/settingsService.dart';
+import 'package:eal_scanner/screens/about_screen.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
@@ -23,7 +24,6 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   late bool _torch = SettingsService.torchByDefault;
   late bool _feedback = SettingsService.scanFeedback;
-  late String _prefix = SettingsService.defaultPrefix;
 
   Map<String, dynamic> get _user => AuthService.user ?? const {};
 
@@ -138,6 +138,9 @@ class _AccountScreenState extends State<AccountScreen> {
               _SwitchRow(
                 icon: Icons.flashlight_on_outlined,
                 label: 'Torch on by default',
+                hint:
+                    'The scanner opens with it lit. It keeps its own torch '
+                    'button either way.',
                 value: _torch,
                 onChanged: (v) async {
                   setState(() => _torch = v);
@@ -147,25 +150,21 @@ class _AccountScreenState extends State<AccountScreen> {
               _SwitchRow(
                 icon: Icons.volume_up_outlined,
                 label: 'Beep and vibrate on scan',
+                hint:
+                    'A sound and a buzz when a code is read. The frame '
+                    'turning green says so too.',
                 value: _feedback,
                 onChanged: (v) async {
                   setState(() => _feedback = v);
                   await SettingsService.setScanFeedback(v);
                 },
-              ),
-              _NavRow(
-                icon: Icons.tag_rounded,
-                label: 'Default serial prefix',
-                value: _prefix.isEmpty ? 'Not set' : _prefix,
-                valueIsMono: _prefix.isNotEmpty,
-                onTap: _editPrefix,
                 isLast: true,
               ),
             ],
           ),
 
           const SizedBox(height: AppSpace.xl),
-          const SectionHeading('Data'),
+          const SectionHeading('Connection'),
           _Group(
             children: [
               Obx(() {
@@ -173,21 +172,12 @@ class _AccountScreenState extends State<AccountScreen> {
                 final offline = controller.isOffline.value;
                 return _StatusRow(
                   icon: offline ? Icons.wifi_off_rounded : Icons.wifi_rounded,
-                  label: 'Server connection',
+                  label: 'Server',
                   value: offline ? 'No connection' : 'Online',
                   valueColor: offline
                       ? AppColors.cautionDeep
                       : AppColors.greenDeep,
                   dotColor: offline ? AppColors.caution : AppColors.green,
-                );
-              }),
-              Obx(() {
-                final controller = Get.find<DashboardController>();
-                return _NavRow(
-                  icon: Icons.refresh_rounded,
-                  label: 'Refresh overview',
-                  value: controller.lastUpdatedLabel,
-                  onTap: () => controller.fetch(background: true),
                   isLast: true,
                 );
               }),
@@ -212,6 +202,21 @@ class _AccountScreenState extends State<AccountScreen> {
             ],
           ),
 
+          const SizedBox(height: AppSpace.xl),
+          const SectionHeading('About'),
+          _Group(
+            children: [
+              _NavRow(
+                icon: Icons.info_outline_rounded,
+                label: 'About ${AppBrand.name}',
+                value: AppBrand.version,
+                valueIsMono: true,
+                onTap: () => Get.to(() => const AboutScreen()),
+                isLast: true,
+              ),
+            ],
+          ),
+
           const SizedBox(height: AppSpace.xxl),
           OutlinedButton.icon(
             onPressed: _confirmSignOut,
@@ -223,65 +228,9 @@ class _AccountScreenState extends State<AccountScreen> {
               minimumSize: const Size.fromHeight(50),
             ),
           ),
-          const SizedBox(height: 11),
-          Text(
-            '${AppBrand.name} ${AppBrand.version} · ${ApiConfig.label}',
-            textAlign: TextAlign.center,
-            style: AppText.mono(size: 11, color: AppColors.ink500),
-          ),
         ],
       ),
     );
-  }
-
-  Future<void> _editPrefix() async {
-    final field = TextEditingController(text: _prefix);
-
-    final saved = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Default serial prefix'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pre-fills the first step of a scan. Leave it empty to type the '
-              'prefix each time.',
-              style: AppText.small,
-            ),
-            const SizedBox(height: AppSpace.lg),
-            TextField(
-              controller: field,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 6,
-              style: AppText.mono(size: 18, weight: FontWeight.w600),
-              decoration: const InputDecoration(hintText: 'ML'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(
-              dialogContext,
-            ).pop(field.text.trim().toUpperCase()),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    field.dispose();
-
-    if (saved == null || !mounted) return;
-    setState(() => _prefix = saved);
-    await SettingsService.setDefaultPrefix(saved);
   }
 
   void _showScanHelp() {
@@ -445,6 +394,8 @@ class _SwitchRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.hint,
+    this.isLast = false,
   });
 
   final IconData icon;
@@ -452,27 +403,54 @@ class _SwitchRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
+  /// What the switch actually changes, in a line. Both of these alter how
+  /// the scanner behaves on a floor, which the label alone does not say.
+  final String? hint;
+
+  final bool isLast;
+
   @override
   Widget build(BuildContext context) {
     return _RowShell(
+      isLast: isLast,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 19, color: AppColors.ink500),
+          Padding(
+            padding: const EdgeInsets.only(top: 15),
+            child: Icon(icon, size: 19, color: AppColors.ink500),
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w500,
-                color: AppColors.ink900,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.ink900,
+                    ),
+                  ),
+                  if (hint != null) ...[
+                    const SizedBox(height: 2),
+                    Text(hint!, style: AppText.micro),
+                  ],
+                ],
               ),
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: AppColors.blue,
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: AppColors.blue,
+            ),
           ),
         ],
       ),
@@ -546,6 +524,7 @@ class _StatusRow extends StatelessWidget {
     required this.value,
     required this.valueColor,
     required this.dotColor,
+    this.isLast = false,
   });
 
   final IconData icon;
@@ -553,10 +532,12 @@ class _StatusRow extends StatelessWidget {
   final String value;
   final Color valueColor;
   final Color dotColor;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _RowShell(
+      isLast: isLast,
       child: Row(
         children: [
           Icon(icon, size: 19, color: AppColors.ink500),
