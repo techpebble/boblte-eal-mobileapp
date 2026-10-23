@@ -689,7 +689,10 @@ class _NoteCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Get.to(() => DispatchDetailScreen(dispatchId: note.id)),
+        onTap: () async {
+          await Get.to(() => DispatchDetailScreen(dispatchId: note.id));
+          await Get.find<DispatchController>().refreshIfStale();
+        },
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
           child: Column(

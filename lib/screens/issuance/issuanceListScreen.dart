@@ -64,7 +64,10 @@ class _IssuanceListScreenState extends State<IssuanceListScreen> {
 
   bool get _canRecord => AuthService.can('issuance:create');
 
-  Future<void> _addStickers() => showStickerDetailsSheetForNext(context);
+  Future<void> _addStickers() async {
+    await showStickerDetailsSheetForNext(context);
+    await _controller.refreshIfStale();
+  }
 
   Future<void> _pickDates() async {
     final span = await showDateRangeSheet(
@@ -725,7 +728,10 @@ class _RangeRow extends StatelessWidget {
     final fully = left <= 0 && issued > 0;
 
     return InkWell(
-      onTap: () => Get.to(() => EALIssuanceDetailScreen(issuance: issuance)),
+      onTap: () async {
+        await Get.to(() => EALIssuanceDetailScreen(issuance: issuance));
+        await Get.find<Issuancecontroller>().refreshIfStale();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: const BoxDecoration(

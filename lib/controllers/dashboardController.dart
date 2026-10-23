@@ -1,3 +1,4 @@
+import 'package:eal_scanner/controllers/record_changes.dart';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +14,10 @@ enum DashboardPeriod { today, week, month }
 /// The app writes straight to the server, so a failed fetch is a first-class
 /// state here rather than a snackbar: [isOffline] drives the blocking
 /// "No connection" screen.
-class DashboardController extends GetxController {
+class DashboardController extends GetxController with StaleRecords {
+  @override
+  Future<void> refreshRecords() => fetch(background: true);
+
   final isLoading = false.obs;
   final isRefreshing = false.obs;
   final isOffline = false.obs;
@@ -68,6 +72,7 @@ class DashboardController extends GetxController {
   /// [background] keeps the existing figures on screen and shows only the
   /// thin progress strip, which is what pull-to-refresh wants.
   Future<void> fetch({bool background = false}) async {
+    isStale.value = false;
     if (isLoading.value || isRefreshing.value) return;
 
     if (background && data.value != null) {

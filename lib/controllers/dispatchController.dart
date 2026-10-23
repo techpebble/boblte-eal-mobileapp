@@ -1,3 +1,4 @@
+import 'package:eal_scanner/controllers/record_changes.dart';
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/dispatch.dart';
 import 'package:eal_scanner/models/dispatch_grouping.dart';
@@ -7,7 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-class DispatchController extends GetxController {
+class DispatchController extends GetxController with StaleRecords {
+  @override
+  Future<void> refreshRecords() => fetchDispatches();
+
   /// The span the list covers, as on the other two lists. The server takes
   /// a start and an end, so a single day is a span where both are the same.
   Rx<DateTime> fromDate = _today().obs;
@@ -155,7 +159,8 @@ class DispatchController extends GetxController {
     setSpan(yesterday, yesterday);
   }
 
-  void fetchDispatches() async {
+  Future<void> fetchDispatches() async {
+    isStale.value = false;
     isLoading.value = true;
     errorMessage.value = '';
     isOffline.value = false;
@@ -236,6 +241,9 @@ class DispatchController extends GetxController {
           );
         }
 
+        // Linking a range moves the production run's waiting count, which
+        // is read on another tab.
+        recordsChanged();
         return null;
       }
 
@@ -294,6 +302,7 @@ class DispatchController extends GetxController {
           );
         }
 
+        recordsChanged();
         return null;
       }
 
@@ -349,6 +358,7 @@ class DispatchController extends GetxController {
             res.data['updatedDispatch'],
           );
         }
+        recordsChanged();
         return null;
       }
 

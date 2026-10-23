@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:get/get.dart';
+
+import 'package:eal_scanner/controllers/dashboardController.dart';
+import 'package:eal_scanner/controllers/dispatchController.dart';
+import 'package:eal_scanner/controllers/issuanceController.dart';
+import 'package:eal_scanner/controllers/usageController.dart';
 import 'package:eal_scanner/screens/accountScreen.dart';
 import 'package:eal_scanner/screens/dispatches/dispatchListScreen.dart';
 import 'package:eal_scanner/screens/homeScreen.dart';
@@ -38,6 +44,37 @@ class _AppShellState extends State<AppShell> {
       await AuthService.refreshUser();
       if (mounted) setState(() {});
     });
+  }
+
+  /// Opens a tab, and brings it up to date if something has changed since
+  /// it was last looked at.
+  ///
+  /// The tabs are built once and kept, which is what makes their scroll and
+  /// filters survive a crossing. It also means a list can sit there showing
+  /// figures a later record has moved, so the crossing is where each one
+  /// catches up — and only where there is something to catch up with, so
+  /// moving between tabs costs nothing.
+  void _select(int i, _TabSpec tab) {
+    setState(() => _index = i);
+    _refresh(tab.label);
+  }
+
+  void _refresh(String label) {
+    try {
+      switch (label) {
+        case 'Home':
+          Get.find<DashboardController>().refreshIfStale();
+        case 'Issuance':
+          Get.find<Issuancecontroller>().refreshIfStale();
+        case 'Production':
+          Get.find<UsageController>().refreshIfStale();
+        case 'Dispatch':
+          Get.find<DispatchController>().refreshIfStale();
+      }
+    } catch (_) {
+      // A tab opened before its controller exists has nothing stale: it
+      // fetches as it builds.
+    }
   }
 
   /// The tabs this account can actually use.
@@ -134,7 +171,7 @@ class _AppShellState extends State<AppShell> {
                     child: _TabButton(
                       spec: tabs[i],
                       selected: index == i,
-                      onTap: () => setState(() => _index = i),
+                      onTap: () => _select(i, tabs[i]),
                     ),
                   ),
               ],

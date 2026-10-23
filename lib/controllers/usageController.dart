@@ -1,3 +1,4 @@
+import 'package:eal_scanner/controllers/record_changes.dart';
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/company.dart';
 import 'package:eal_scanner/models/items.dart';
@@ -11,7 +12,10 @@ import 'package:eal_scanner/widgets/ui/feedback.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-class UsageController extends GetxController {
+class UsageController extends GetxController with StaleRecords {
+  @override
+  Future<void> refreshRecords() => fetchEALUsage();
+
   /// The span the list covers. The server takes a start and an end, so a
   /// single day is simply a span where both are the same date.
   Rx<DateTime> fromDate = _today().obs;
@@ -135,7 +139,8 @@ class UsageController extends GetxController {
     setSpan(yesterday, yesterday);
   }
 
-  void fetchEALUsage() async {
+  Future<void> fetchEALUsage() async {
+    isStale.value = false;
     final start = fromDate.value;
     final end = toDate.value;
     final formatter = DateFormat('yyyy-MM-dd');
@@ -314,6 +319,12 @@ class UsageController extends GetxController {
 
       if (res.statusCode == 201) {
         isLoading.value = false;
+        // The list behind this flow is what the operator comes back to, so
+        // it is refetched rather than patched: the server owns the balance
+        // and the record id. The entry below is the scan flow's own tally
+        // of what it has recorded, which is a different thing.
+        recordsChanged();
+        fetchEALUsage();
         currentProduction.add(
           UsageModel(
             id: '',

@@ -67,7 +67,13 @@ class _UsagesListScreenState extends State<UsagesListScreen> {
 
   bool get _canRecord => AuthService.can('usage:create');
 
-  void _newEntry() => Get.to(() => EALStickerScreen());
+  /// Records an entry, then catches the list up on the way back. The flow
+  /// writes to the server, so what is behind it is a moment out of date the
+  /// instant it succeeds.
+  Future<void> _newEntry() async {
+    await Get.to(() => EALStickerScreen());
+    await _controller.refreshIfStale();
+  }
 
   Future<void> _pickDates() async {
     final span = await showDateRangeSheet(

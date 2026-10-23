@@ -1,3 +1,4 @@
+import 'package:eal_scanner/controllers/record_changes.dart';
 import 'package:dio/dio.dart';
 import 'package:eal_scanner/models/company.dart';
 import 'package:eal_scanner/models/issuance.dart';
@@ -9,7 +10,10 @@ import 'package:eal_scanner/utils/api_error.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-class Issuancecontroller extends GetxController {
+class Issuancecontroller extends GetxController with StaleRecords {
+  @override
+  Future<void> refreshRecords() => fetchEALIssuance();
+
   /// The span the list covers. The server takes a start and an end, so a
   /// single day is simply a span where both are the same date.
   Rx<DateTime> fromDate = _today().obs;
@@ -148,7 +152,8 @@ class Issuancecontroller extends GetxController {
         toDate.value == today;
   }
 
-  void fetchEALIssuance() async {
+  Future<void> fetchEALIssuance() async {
+    isStale.value = false;
     final start = fromDate.value;
     final end = toDate.value;
     final formatter = DateFormat('yyyy-MM-dd');
@@ -283,6 +288,10 @@ class Issuancecontroller extends GetxController {
         }
         // The list is what shows the result now, so it is refetched rather
         // than patched: the server owns the balance and the record id.
+        // Told first, fetched second: the fetch clears this list's own
+        // flag, so the screen behind the sheet is not left marked as
+        // needing the very records it has just asked for.
+        recordsChanged();
         fetchEALIssuance();
         return null;
       }
@@ -324,6 +333,7 @@ class Issuancecontroller extends GetxController {
 
       if (res.statusCode == 200) {
         ealIssuance.removeWhere((i) => i.id == id);
+        recordsChanged();
         return null;
       }
 
