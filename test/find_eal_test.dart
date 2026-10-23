@@ -277,17 +277,16 @@ void main() {
     expect(controller.canSearch, isTrue);
   });
 
-  test('a scanned label gives its prefix as well as its serial', () {
-    const payload = 'AAA|0000002401|0000002354|0000002401|48|1';
+  test('a scanned label is searched for by its serial', () {
+    const payload = 'IML0180KRN0525|2047233648|2047219201|2047238400|301|400';
 
-    // Dropping the prefix made every scan ask which book, when the label
-    // in the hand had already said.
-    expect(EalQrCodec.prefixOf(payload), 'AAA');
-    expect(EalQrCodec.pad(EalQrCodec.readSingle(payload)!), '0000002401');
+    // The code's first field is the press's book code, not the prefix an
+    // issuance is recorded under. Joining the two made a number no label
+    // could have, and the server said so.
+    expect(EalQrCodec.pad(EalQrCodec.readSingle(payload)!), '2047233648');
 
-    // A carton barcode gives neither, so it is not searched for.
+    // A carton barcode is not a label, so it is not searched for.
     expect(EalQrCodec.readSingle('8901234567890'), isNull);
-    expect(EalQrCodec.prefixOf('8901234567890'), isNull);
   });
 }
 

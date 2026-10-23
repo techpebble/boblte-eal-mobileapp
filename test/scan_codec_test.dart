@@ -60,16 +60,29 @@ void main() {
         reason: 'a press that drops leading zeros still prints a label',
       );
 
-      // And the book the label came out of, for checking it against the
-      // prefix the operator typed.
-      expect(EalQrCodec.prefixOf(payload), 'ML123');
-      expect(
-        EalQrCodec.prefixOf(' ml-123|0000012012|0000012001|0000012012|12|1'),
-        'ML-123',
-      );
-      expect(EalQrCodec.prefixOf('8901234567890'), isNull);
       expect(EalQrCodec.readSingle('ML123|12|34'), isNull);
       expect(EalQrCodec.readSingle(''), isNull);
+    });
+
+    test('a label off the press reads, book code and all', () {
+      // The real thing, from a 180ml Karnataka book of 400 cases:
+      //
+      //   IML0180KRN0525|2047233648|2047219201|2047238400|301|400
+      //   book code     |this label|run from  |run to    |case|of
+      //
+      // The first field is the press's code for the book — not the prefix
+      // the issuance is recorded under, which is three characters. Reading
+      // it as one and holding the scan against it refused every real
+      // label: "that label is from book IML0180KRN0525, and this entry is
+      // for IML".
+      const real = 'IML0180KRN0525|2047233648|2047219201|2047238400|301|400';
+
+      expect(EalQrCodec.readSingle(real), 2047233648);
+      expect(EalQrCodec.looksLikeRange(real), isFalse);
+
+      // And the serial is the last bottle of case 301, which is what the
+      // case arithmetic counts back from: 2047219201 + 300 * 48.
+      expect(EalQrCodec.firstSerialOfCase(2047233648, 48), '2047233601');
     });
 
     test('the label names the last bottle of its case', () {

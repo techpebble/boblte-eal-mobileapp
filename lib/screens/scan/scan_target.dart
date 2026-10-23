@@ -198,7 +198,16 @@ class ScanDraft {
 class EalQrCodec {
   EalQrCodec._();
 
-  /// Case-insensitive, and the prefix may carry a dash or a dot: labels
+  /// A label off the press, as the excise printer writes it:
+  ///
+  ///     IML0180KRN0525|2047233648|2047219201|2047238400|301|400
+  ///     book code     |this label|run from  |run to    |case|of
+  ///
+  /// The first field is the press's own book code — product, size, state
+  /// and month — and not the prefix an issuance is recorded under here.
+  /// Only the second field names this label.
+  ///
+  /// Case-insensitive, and the book code may carry a dash or a dot: labels
   /// come from several presses and they are not all printed the same way.
   /// The serial is held to eight to twelve digits rather than exactly ten,
   /// because a press that drops a leading zero still prints a real label.
@@ -221,14 +230,6 @@ class EalQrCodec {
     final value = clean(raw);
     if (!_single.hasMatch(value)) return null;
     return int.tryParse(value.split('|')[1]);
-  }
-
-  /// The prefix the label itself carries, where it has one. The operator
-  /// types a prefix before scanning, and a label from another book reads
-  /// as a perfectly good number under it.
-  static String? prefixOf(String raw) {
-    final match = _single.firstMatch(clean(raw));
-    return match?.group(1)?.toUpperCase();
   }
 
   /// Both ends of a range, where the code carries them.

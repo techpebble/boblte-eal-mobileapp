@@ -121,13 +121,12 @@ class _FindEalScreenState extends State<FindEalScreen> {
       return;
     }
 
-    // Prefix and serial together. The number alone does not name a label:
-    // the same serial sits in more than one book, and the prefix printed
-    // on the one in the hand is what tells them apart — so dropping it
-    // made every scan ask a question the label had already answered.
-    final serial = single != null ? EalQrCodec.pad(single) : range!.from;
-    final prefix = EalQrCodec.prefixOf(raw) ?? '';
-    final query = '$prefix$serial';
+    // The serial on its own. The code's first field is the press's book
+    // code — IML0180KRN0525 — and not the prefix an issuance is recorded
+    // under, so sending the two joined asked the server for a label that
+    // could not exist. Where the serial sits in more than one book the
+    // server says so, and the operator picks.
+    final query = single != null ? EalQrCodec.pad(single) : range!.from;
 
     setState(() => _readError = '');
     _field.text = query;

@@ -234,21 +234,6 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
       return;
     }
 
-    // The label's own prefix, where it carries one. An operator types a
-    // prefix before scanning, and a label out of another book reads as a
-    // perfectly good number underneath it — which is how a range ends up
-    // recorded against the wrong one.
-    final onLabel = EalQrCodec.prefixOf(raw);
-    if (onLabel != null && onLabel != _draft.prefix.toUpperCase()) {
-      setState(
-        () => _error =
-            'That label is from book $onLabel, and this entry is for '
-            '${_draft.prefix}. Change the prefix above, or scan a label '
-            'from ${_draft.prefix}.',
-      );
-      return;
-    }
-
     setState(() {
       _error = '';
 
