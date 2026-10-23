@@ -44,31 +44,30 @@ class _FindEalScreenState extends State<FindEalScreen> {
   Future<void> _submit() async {
     _focus.unfocus();
     if (_readError.isNotEmpty) setState(() => _readError = '');
-    final only = await _controller.search();
 
-    if (!mounted || only == null) return;
+    final outcome = await _controller.search();
+    if (!mounted) return;
 
-    // One book, so there is nothing to choose: go straight to it.
-    _open(only);
+    final trace = outcome.trace;
+
+    // The server settles the choice where it can, and the reading comes
+    // back with the search. Only where it could not is there a list.
+    if (trace != null && !trace.needsChoice && trace.book != null) {
+      _open(trace.book!, ready: trace);
+    }
   }
 
-  void _open(TraceIssuance book) {
+  void _open(TraceBook book, {EalTrace? ready}) {
     Get.to(
       () => FindEalBookScreen(
         book: book,
-        serial:
-            int.tryParse(
-              _controller.query.value.replaceAll(RegExp(r'[^0-9]'), ''),
-            ) ??
-            0,
-        prefix: book.prefix,
+        serial: _controller.query.value.trim(),
         otherBooks: _controller.books.length,
+        ready: ready,
       ),
     );
   }
 
-  /// Scanning fills the same field, so the answer comes from one place
-  /// however the number was obtained.
   /// What a scanned code could not be read as, said on the page rather
   /// than searched for.
   String _readError = '';
@@ -261,11 +260,18 @@ class _FindEalScreenState extends State<FindEalScreen> {
     );
   }
 
+  /// A notice is as tall as its words. Given the whole page to fill, it
+  /// stretched a single sentence down to the footer, which read as
+  /// something still loading.
+  Widget _banner(Widget notice) => SingleChildScrollView(
+    padding: const EdgeInsets.all(AppSpace.gutter),
+    child: notice,
+  );
+
   Widget _result() {
     if (_readError.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpace.gutter),
-        child: NoticeBanner(
+      return _banner(
+        NoticeBanner(
           title: 'That code was not read',
           message: _readError,
           trailing: TextButton(onPressed: _scan, child: const Text('Scan')),
@@ -277,18 +283,6 @@ class _FindEalScreenState extends State<FindEalScreen> {
       return OfflineState(what: 'this label', onRetry: _submit);
     }
 
-    if (_controller.errorMessage.value.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpace.gutter),
-        child: NoticeBanner(
-          level: NoticeLevel.error,
-          title: 'That did not work',
-          message: _controller.errorMessage.value,
-          trailing: TextButton(onPressed: _submit, child: const Text('Retry')),
-        ),
-      );
-    }
-
     if (_controller.notFound.value) {
       return const EmptyState(
         icon: Icons.search_off_rounded,
@@ -297,6 +291,17 @@ class _FindEalScreenState extends State<FindEalScreen> {
             'Check the digits, or the label may belong to another company '
             'this account cannot see.',
         primaryColor: AppColors.blue,
+      );
+    }
+
+    if (_controller.errorMessage.value.isNotEmpty) {
+      return _banner(
+        NoticeBanner(
+          level: NoticeLevel.error,
+          title: 'That did not work',
+          message: _controller.errorMessage.value,
+          trailing: TextButton(onPressed: _submit, child: const Text('Retry')),
+        ),
       );
     }
 
@@ -357,7 +362,7 @@ class _FindEalScreenState extends State<FindEalScreen> {
 class _BookCard extends StatelessWidget {
   const _BookCard({required this.book, required this.onTap});
 
-  final TraceIssuance book;
+  final TraceBook book;
   final VoidCallback onTap;
 
   @override

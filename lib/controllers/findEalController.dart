@@ -21,7 +21,7 @@ class FindEalController extends GetxController {
   final notFound = false.obs;
 
   /// The books that carry the number, for the operator to choose from.
-  final books = <TraceIssuance>[].obs;
+  final books = <TraceBook>[].obs;
 
   /// True once a search has been run, so the screen can tell "nothing
   /// looked up yet" from "looked up, and there is nothing".
@@ -37,11 +37,22 @@ class FindEalController extends GetxController {
     hasSearched.value = false;
   }
 
-  /// Which books carry the number. Returns the only one where there is
-  /// only one, so the screen can go straight to it.
-  Future<TraceIssuance?> search() async {
+  /// Looks the number up.
+  ///
+  /// The server settles the choice where it can: one book holding the
+  /// serial and it traces that one, several and it answers needsChoice
+  /// with the candidates. So a search is one request, and the reading
+  /// comes back with it where there was nothing to ask.
+  Future<TraceOutcome> search() async {
     final number = query.value.trim();
-    if (number.isEmpty) return null;
+    if (number.isEmpty) {
+      return const TraceOutcome(
+        trace: null,
+        error: '',
+        isOffline: false,
+        notFound: false,
+      );
+    }
 
     isLoading.value = true;
     errorMessage.value = '';
@@ -55,30 +66,31 @@ class FindEalController extends GetxController {
     errorMessage.value = outcome.error;
     notFound.value = outcome.notFound;
     isOffline.value = outcome.isOffline;
-    books.value = outcome.trace?.issuances ?? const [];
+    books.value = outcome.trace?.candidates ?? const [];
 
-    return books.length == 1 ? books.first : null;
+    return outcome;
   }
 
-  /// The label's story within one book.
+  /// The label's story within one book, once the operator has said which.
   ///
   /// This one answers rather than publishing. The reading has a screen of
   /// its own, which keeps its own loading and error state: writing to the
   /// shared ones from there would mark the screen behind it dirty while
   /// the new one is still being built.
-  Future<TraceOutcome> trace(TraceIssuance book) => _request(
-    query.value.trim(),
-    packId: book.packId.isEmpty ? null : book.packId,
-  );
+  Future<TraceOutcome> trace(TraceBook book) =>
+      _request(query.value.trim(), issuanceId: book.id);
 
-  Future<TraceOutcome> _request(String number, {String? packId}) async {
+  Future<TraceOutcome> _request(String number, {String? issuanceId}) async {
     try {
       final Dio dio = DioClient().dio;
       final res = await dio.get(
         'eal_usage/find',
         queryParameters: {
           'ealNumber': number,
-          if (packId != null) 'pack': packId,
+          // Which book, where the operator has said. The server takes the
+          // issuance itself rather than a pack: two books of the same
+          // pack size can hold the same serial.
+          if (issuanceId != null) 'issuanceId': issuanceId,
         },
         options: Options(
           // 404 is an answer here, not a failure: the number may belong to
@@ -89,8 +101,24 @@ class FindEalController extends GetxController {
       );
 
       if (res.statusCode == 200) {
+        final trace = EalTrace.fromJson(res.data as Map<String, dynamic>);
+
+        // A 200 that carries neither a book nor a choice is an answer
+        // this app cannot use. Reading it as "nothing yet" left the
+        // button looking broken: pressed, and the page unchanged.
+        if (!trace.needsChoice && trace.book == null) {
+          return TraceOutcome(
+            trace: null,
+            error:
+                'The answer could not be read: it named no book and no '
+                'choice between books.',
+            isOffline: false,
+            notFound: false,
+          );
+        }
+
         return TraceOutcome(
-          trace: EalTrace.fromJson(res.data as Map<String, dynamic>),
+          trace: trace,
           error: '',
           isOffline: false,
           notFound: false,
@@ -98,17 +126,24 @@ class FindEalController extends GetxController {
       }
 
       if (res.statusCode == 404) {
-        return const TraceOutcome(
+        // The server says which prefix and serial it could not place.
+        return TraceOutcome(
           trace: null,
-          error: '',
+          error: readableResponseError(res, ''),
           isOffline: false,
           notFound: true,
         );
       }
 
+      // The status, where the body says nothing. "Could not look that
+      // label up" named neither what was asked nor what came back, so
+      // there was nothing for anyone to act on.
       return TraceOutcome(
         trace: null,
-        error: readableResponseError(res, 'Could not look that label up.'),
+        error: readableResponseError(
+          res,
+          'The server answered ${res.statusCode} and said nothing more.',
+        ),
         isOffline: false,
         notFound: false,
       );
@@ -119,10 +154,13 @@ class FindEalController extends GetxController {
         isOffline: isConnectionFailure(e),
         notFound: false,
       );
-    } catch (_) {
-      return const TraceOutcome(
+    } catch (error) {
+      // Anything else is the answer not being what this app expects —
+      // a record shaped differently from the rest. Naming it is the
+      // difference between a bug report and a shrug.
+      return TraceOutcome(
         trace: null,
-        error: 'Could not look that label up.',
+        error: 'The answer could not be read: $error',
         isOffline: false,
         notFound: false,
       );

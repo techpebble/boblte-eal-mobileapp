@@ -20,17 +20,23 @@ class FindEalBookScreen extends StatefulWidget {
     super.key,
     required this.book,
     required this.serial,
-    required this.prefix,
     required this.otherBooks,
+    this.ready,
   });
 
-  final TraceIssuance book;
-  final int serial;
-  final String prefix;
+  final TraceBook book;
+
+  /// What was typed or scanned, as the server takes it.
+  final String serial;
 
   /// How many books carry the number in all, so the bar can say whether
   /// there is another one to go back to.
   final int otherBooks;
+
+  /// The reading, where the search already carried it: the server traces
+  /// the book straight away when only one holds the serial, so asking
+  /// again would be a second request for an answer already in hand.
+  final EalTrace? ready;
 
   @override
   State<FindEalBookScreen> createState() => _FindEalBookScreenState();
@@ -45,7 +51,12 @@ class _FindEalBookScreenState extends State<FindEalBookScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.ready != null) {
+      _trace = widget.ready;
+      _loading = false;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -72,17 +83,11 @@ class _FindEalBookScreenState extends State<FindEalBookScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SerialRangeText(
-              prefix: widget.prefix,
-              from: widget.serial,
-              to: widget.serial,
-              size: 15,
-              showPrefix: false,
-            ),
+            Text(widget.serial, style: AppText.appBarTitle),
             Text(
-              widget.prefix.isEmpty
+              widget.book.prefix.isEmpty
                   ? widget.book.packLabel
-                  : '${widget.prefix} · ${widget.book.packLabel}',
+                  : '${widget.book.prefix} · ${widget.book.packLabel}',
               style: AppText.micro,
             ),
           ],
@@ -143,7 +148,7 @@ class _BookBar extends StatelessWidget {
     required this.onChange,
   });
 
-  final TraceIssuance book;
+  final TraceBook book;
   final int total;
   final VoidCallback onChange;
 
@@ -209,11 +214,13 @@ class _Trace extends StatelessWidget {
   /// The book chosen on the screen before. Its figures are drawn from the
   /// record the server returned for it, which may be richer than the one
   /// the chooser was built from.
-  final TraceIssuance book;
+  final TraceBook book;
 
   @override
   Widget build(BuildContext context) {
-    final issuance = trace.issuances.isEmpty ? book : trace.issuances.first;
+    // The book as the reading describes it, falling back to the one the
+    // chooser was built from.
+    final issuance = trace.book ?? book;
 
     return ListView(
       shrinkWrap: true,
