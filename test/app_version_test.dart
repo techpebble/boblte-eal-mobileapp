@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:eal_scanner/branding.dart';
 import 'package:eal_scanner/config/app_version.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +25,10 @@ void main() {
 
   test('AppVersion.name matches pubspec', () {
     expect(AppVersion.name, version!.group(1));
+  });
+
+  test('the version on the About page is the build that is installed', () {
+    expect(AppBrand.version, '${version!.group(1)}+${version.group(2)}');
   });
 
   test('every request says which build is asking', () {

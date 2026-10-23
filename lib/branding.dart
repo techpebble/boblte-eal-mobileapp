@@ -1,3 +1,4 @@
+import 'package:eal_scanner/config/app_version.dart';
 import 'package:flutter/material.dart';
 
 class AppBrand {
@@ -9,7 +10,9 @@ class AppBrand {
       'Issuance, production and dispatch for excise '
       'adhesive labels.';
 
-  /// Kept in step with `version:` in pubspec.yaml. Shown on the sign-in and
-  /// account screens so a field report can name the exact build.
-  static const version = '1.0.1+2';
+  /// Shown on the sign-in and account screens so a field report can name the
+  /// exact build. Built from [AppVersion] rather than written out again: this
+  /// read 1.0.1+2 while the APK was 1.0.3+3, which is precisely the question
+  /// the About page exists to answer.
+  static const version = '${AppVersion.name}+${AppVersion.build}';
 }

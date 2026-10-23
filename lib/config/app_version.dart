@@ -15,8 +15,8 @@ class AppVersion {
   /// The `+N` half of pubspec's `version:`.
   static const int build = 3;
 
-  /// The `1.0.2` half, for the About page.
-  static const String name = '1.0.2';
+  /// The `1.0.3` half. [AppBrand.version] is built from this.
+  static const String name = '1.0.3';
 
   /// Carried by every request, including sign-in — an operator should learn
   /// their app is out of date at the sign-in screen, not halfway through a
