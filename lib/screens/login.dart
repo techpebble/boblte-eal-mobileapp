@@ -7,9 +7,10 @@ import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/widgets/ui/feedback.dart';
 
-/// Sign-in. Fields carry real labels rather than placeholder-only hints,
-/// failures appear inline instead of in a modal dialog, and the footer names
-/// the server and build so a field report can be specific.
+/// Sign-in. Fields carry real labels as well as their hints, failures
+/// appear inline instead of in a modal dialog, and a test build names the
+/// server it is pointed at so a field report can be specific. A live build
+/// names nothing: that is where the app belongs.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -81,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onChanged: (_) => _controller.message.value = '',
                     onSubmitted: (_) => _controller.login(),
                     decoration: InputDecoration(
+                      hintText: 'Your password',
                       prefixIcon: const Icon(
                         Icons.lock_outline_rounded,
                         size: 19,
@@ -132,8 +134,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: AppSpace.xxl),
-                  const _BuildStrip(),
+                  // Only where it is not the live server. Naming the live
+                  // API told an operator nothing they could act on, and put
+                  // the address of the plant's server on the sign-in screen
+                  // of every phone. A test build still says so, loudly,
+                  // because signing in to the wrong one is the mistake.
+                  if (!ApiConfig.isProduction) ...[
+                    const SizedBox(height: AppSpace.xxl),
+                    const _BuildStrip(),
+                  ],
                 ],
               ),
             ),
@@ -244,42 +253,40 @@ class _BrandBand extends StatelessWidget {
   }
 }
 
-/// Names the server being signed in to.
+/// Names the server a test build is signed in to.
 ///
-/// It says which server, and nothing about the data: a test server may still
-/// be pointed at the live database, so promising otherwise would be worse
-/// than saying nothing.
+/// Only test builds draw this: the live server is where the app is meant to
+/// be, so naming it was noise on every phone in the plant. It says which
+/// server, and nothing about the data — a test server may still be pointed
+/// at the live database, so promising otherwise would be worse than saying
+/// nothing.
 class _BuildStrip extends StatelessWidget {
   const _BuildStrip();
 
   @override
   Widget build(BuildContext context) {
-    final live = ApiConfig.isProduction;
-
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      background: live ? AppColors.surface : AppColors.cautionTint,
-      borderColor: live ? AppColors.line : AppColors.cautionLine,
+      background: AppColors.cautionTint,
+      borderColor: AppColors.cautionLine,
       child: Row(
         children: [
-          Icon(
-            live ? Icons.dns_outlined : Icons.science_outlined,
+          const Icon(
+            Icons.science_outlined,
             size: 18,
-            color: live ? AppColors.ink500 : AppColors.caution,
+            color: AppColors.caution,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  live
-                      ? 'Signing in to the live server'
-                      : 'Signing in to a test server',
+                const Text(
+                  'Signing in to a test server',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: live ? AppColors.ink900 : AppColors.cautionDeep,
+                    color: AppColors.cautionDeep,
                   ),
                 ),
                 const SizedBox(height: 1),
