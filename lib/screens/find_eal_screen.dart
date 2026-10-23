@@ -258,6 +258,13 @@ class _Trace extends StatelessWidget {
   Widget build(BuildContext context) {
     final issuance = trace.issuances.isEmpty ? null : trace.issuances.first;
 
+    // A serial is unique within an issuance, not across them: the same
+    // number can sit in a 180ml book and a 1000ml book, both from the
+    // same prefix. Where it does, every one of them is drawn, because
+    // picking the first said "9,000 issued, 9,000 unused" beside a run
+    // that had drawn its labels from the other.
+    final several = trace.issuances.length > 1;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpace.gutter,
@@ -266,7 +273,8 @@ class _Trace extends StatelessWidget {
         AppSpace.xxl,
       ),
       children: [
-        // What the label is, before where it has been.
+        // What the label is, before where it has been. The pack belongs to
+        // each issuance below, since they may differ.
         if (issuance != null) ...[
           Row(
             children: [
@@ -282,10 +290,17 @@ class _Trace extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            '${issuance.companyName} · ${issuance.packName}'
-            '${issuance.bottlesPerCase > 0 ? ' · ${issuance.bottlesPerCase} per case' : ''}',
-            style: AppText.small,
+          Text(issuance.companyName, style: AppText.small),
+          const SizedBox(height: AppSpace.lg),
+        ],
+
+        if (several) ...[
+          NoticeBanner(
+            level: NoticeLevel.info,
+            title: '${trace.issuances.length} issuances carry this number',
+            message:
+                'A serial is unique within a book, not across them. Both '
+                'are listed, with the pack each one is for.',
           ),
           const SizedBox(height: AppSpace.lg),
         ],
@@ -297,31 +312,32 @@ class _Trace extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: Column(
             children: [
-              _Stage(
-                icon: Icons.assignment_turned_in_outlined,
-                tint: AppColors.indigoTint,
-                accent: AppColors.indigo,
-                title: 'Issued',
-                date: issuance?.date,
-                enteredBy: issuance?.enteredBy ?? '',
-                enteredAt: issuance?.enteredAt,
-                lines: [
-                  // These figures belong to the issuance this label came
-                  // out of, not to the label, so the sentence names what
-                  // is counted: "9,600 issued · 9,600 unused" read as
-                  // though nothing had been used even when this very
-                  // label had been.
-                  if (issuance != null)
-                    '${formatLabels(issuance.issuedQuantity)} in this '
-                        'issuance · ${formatQty(issuance.balanceQuantity)} '
+              for (final record in trace.issuances)
+                _Stage(
+                  icon: Icons.assignment_turned_in_outlined,
+                  tint: AppColors.indigoTint,
+                  accent: AppColors.indigo,
+                  title: 'Issued',
+                  date: record.date,
+                  enteredBy: record.enteredBy,
+                  enteredAt: record.enteredAt,
+                  lines: [
+                    if (record.packName != '—')
+                      '${record.packName}'
+                          '${record.bottlesPerCase > 0 ? ' · ${record.bottlesPerCase} per case' : ''}',
+                    // These figures belong to the issuance this label came
+                    // out of, not to the label, so the sentence names what
+                    // is counted: "9,000 issued · 9,000 unused" read as
+                    // though nothing had been used even when this very
+                    // label had been.
+                    '${formatLabels(record.issuedQuantity)} in this '
+                        'issuance · ${formatQty(record.balanceQuantity)} '
                         'of them still unused',
-                ],
-                range: issuance == null
-                    ? null
-                    : (from: issuance.serialFrom, to: issuance.serialTo),
-                prefix: trace.prefix,
-                isLast: false,
-              ),
+                  ],
+                  range: (from: record.serialFrom, to: record.serialTo),
+                  prefix: trace.prefix,
+                  isLast: false,
+                ),
 
               if (trace.wasUsed)
                 for (final run in trace.runs)

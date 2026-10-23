@@ -184,6 +184,52 @@ void main() {
     );
   });
 
+  testWidgets('every issuance that carries the number is shown', (
+    tester,
+  ) async {
+    // A serial is unique within a book, not across them: on this server
+    // 2000 sits in a 180ml book and a 1000ml one. Drawing only the first
+    // put "9,000 issued · 9,000 unused" beside a run that had taken its
+    // labels from the other.
+    final body = found['respondData'] as Map<String, dynamic>;
+    final twoBooks = {
+      'respondData': {
+        ...body,
+        'issuance': [
+          ...(body['issuance'] as List),
+          {
+            'id': 'i2',
+            'dateIssued': '2026-10-17T00:00:00.000Z',
+            'serialFrom': 1,
+            'serialTo': 288000,
+            'issuedQuantity': 288000,
+            'balanceQuantity': 278400,
+            'company': {'name': 'Blue Ocean Beverages Pvt. Ltd.'},
+            'createdBy': {'fullName': 'Priya Nair'},
+            'createdAt': '2026-10-17T07:40:00.000Z',
+            'market': 'local',
+            'pack': {'name': '1000ml', 'bottlesPerCase': 9},
+            'prefix': 'AAA',
+          },
+        ],
+      },
+    };
+    serve(twoBooks);
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'AAA0000002401');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Find this label'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Issued'), findsNWidgets(2));
+    expect(find.text('2 issuances carry this number'), findsOneWidget);
+
+    // Each one says which pack it is for, so they can be told apart.
+    expect(find.text('180ml · 48 per case'), findsOneWidget);
+    expect(find.text('1000ml · 9 per case'), findsOneWidget);
+  });
+
   testWidgets('a label that has gone no further keeps its rows', (
     tester,
   ) async {
