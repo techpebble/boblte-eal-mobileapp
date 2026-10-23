@@ -269,13 +269,26 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   int get _labels => _draft.labels;
   int get _cases => _draft.casesFor(_target.bottlesPerCase);
 
+  /// Cases recorded since this screen opened.
+  ///
+  /// The count it was handed is how the line stood when it was opened, and
+  /// "record another range" stays on this screen rather than coming back
+  /// through it. So a second range was being measured against the line as
+  /// it was before the first one: 25 linked, 25 more, and the screen still
+  /// read 25 of 50 with 25 short.
+  int _recordedHere = 0;
+
+  /// What the line holds now: what the server had, plus what has been sent
+  /// from this screen since.
+  int get _alreadyLinked => (_target.alreadyLinkedCases ?? 0) + _recordedHere;
+
   /// Where a dispatch line stands once this range is added.
   ({int after, int outstanding, bool completes, bool exceeds})?
   get _lineEffect {
     if (!_target.hasTargetQuantity) return null;
 
     final required = _target.requiredCases!;
-    final already = _target.alreadyLinkedCases ?? 0;
+    final already = _alreadyLinked;
     final after = already + _cases;
 
     return (
@@ -306,6 +319,10 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
       return;
     }
 
+    // Read before the tally moves: this range's own effect on the line.
+    final lineAfter = _lineEffect?.after;
+    _recordedHere += _cases;
+
     final outcome = await Navigator.push<ScanOutcome>(
       context,
       MaterialPageRoute(
@@ -314,7 +331,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
           draft: _draft,
           labels: _labels,
           cases: _cases,
-          lineAfter: _lineEffect?.after,
+          lineAfter: lineAfter,
         ),
       ),
     );
@@ -550,7 +567,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
             const SizedBox(height: AppSpace.md),
             _LineEffectCard(
               required_: _target.requiredCases!,
-              already: _target.alreadyLinkedCases ?? 0,
+              already: _alreadyLinked,
               adding: _cases,
               effect: effect,
             ),
@@ -706,7 +723,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
 
   String _targetLine() {
     final needs = 'This line needs ${formatCases(_target.requiredCases!)}';
-    final linked = _target.alreadyLinkedCases ?? 0;
+    final linked = _alreadyLinked;
     if (linked == 0) return '$needs.';
     return '$needs. ${formatQty(linked)} already linked.';
   }

@@ -162,6 +162,48 @@ void main() {
     expect(find.text('Record 1,000 cases'), findsOneWidget);
   });
 
+  testWidgets('a second range counts on top of the first, not instead', (
+    tester,
+  ) async {
+    // Two pallets of 1,000 cases against a line of 2,000. The count the
+    // screen is handed is how the line stood when it opened, and recording
+    // another range stays on this screen — so the second range used to be
+    // measured against an empty line: 1,000 of 2,000, with 1,000 short,
+    // when the line was in fact full.
+    await pump(
+      tester,
+      target(
+        module: AppModule.dispatch,
+        submit: (_) async => null,
+        unit: ScanUnit.cases,
+        requiredCases: 2000,
+        alreadyLinkedCases: 0,
+      ),
+    );
+
+    await typeWholeRange(tester);
+    await tester.tap(find.text('Link 1,000 cases'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1,000 / 2,000'), findsOneWidget);
+
+    await tester.tap(find.text('Record another range'));
+    await tester.pumpAndSettle();
+
+    // The line as it now stands, before the next range is even scanned.
+    expect(find.textContaining('1,000 already linked'), findsOneWidget);
+
+    await typeEnd(tester, '2804832001');
+    await typeEnd(tester, '2804928000');
+
+    expect(find.text('This completes the line'), findsOneWidget);
+
+    await tester.tap(find.text('Link 1,000 cases'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2,000 / 2,000'), findsOneWidget);
+  });
+
   testWidgets('a part case never reaches the screen', (tester) async {
     await pump(tester, target(submit: (_) async => null));
     await typeEnd(tester, '2804736001');
