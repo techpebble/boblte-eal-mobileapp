@@ -332,14 +332,6 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
                 ),
               ),
 
-            const SizedBox(height: 10),
-            _ScanButton(
-              enabled: item != null,
-              accent: AppColors.teal,
-              label: recorded.isEmpty ? 'Scan a range' : 'Scan another range',
-              onTap: _scanRange,
-            ),
-
             if (item != null) ...[
               const SizedBox(height: AppSpace.md),
               NoticeBanner(
@@ -354,6 +346,7 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
         );
       }),
       bottomNavigationBar: Obx(() {
+        final item = _item;
         final recorded = _controller.currentProduction;
         final cases = recorded.fold<int>(
           0,
@@ -394,12 +387,21 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
                     ],
                   ),
                   const SizedBox(height: 11),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                  // A shift is a run of ranges, scanned one after another,
+                  // so that is what the footer carries. Done sat here
+                  // while the scan button waited further up the page, and
+                  // there was nothing for Done to do: every range is
+                  // written to the server as it is scanned. Leaving is
+                  // the close in the header.
+                  ElevatedButton.icon(
+                    onPressed: item == null ? null : _scanRange,
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                    label: Text(
+                      recorded.isEmpty ? 'Scan a range' : 'Scan another range',
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.teal,
                     ),
-                    child: Text(recorded.isEmpty ? 'Close' : 'Done'),
                   ),
                 ],
               ),
@@ -407,59 +409,6 @@ class _EALStickerScreenState extends State<EALStickerScreen> {
           ),
         );
       }),
-    );
-  }
-}
-
-class _ScanButton extends StatelessWidget {
-  const _ScanButton({
-    required this.enabled,
-    required this.accent,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool enabled;
-  final Color accent;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: AppRadius.brControl,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.brControl,
-          border: Border.all(
-            color: enabled ? accent : AppColors.lineField,
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.qr_code_scanner_rounded,
-              size: 19,
-              color: enabled ? accent : AppColors.ink400,
-            ),
-            const SizedBox(width: 9),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: enabled ? accent : AppColors.ink500,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

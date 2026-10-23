@@ -7,6 +7,9 @@ import 'package:eal_scanner/controllers/loginController.dart';
 import 'package:eal_scanner/controllers/usageController.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/screens/issuance/issuanceListScreen.dart';
+import 'package:eal_scanner/screens/scan/scan_flow_screen.dart';
+import 'package:eal_scanner/screens/scan/scan_target.dart';
+import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/services/dioClient.dart';
 import 'package:eal_scanner/utils/api_error.dart';
 import 'package:eal_scanner/widgets/ui/app_shell.dart';
@@ -302,6 +305,74 @@ void main() {
       expect(storage.read('pref_torch_default'), isFalse);
       expect(storage.read('pref_scan_feedback'), isFalse);
       expect(storage.read('pref_default_prefix'), 'DLK');
+    });
+  });
+
+  /// Typing a serial instead of scanning it.
+  ///
+  /// A scan reads the number off the label; typing it is where a
+  /// transposed digit becomes a real serial belonging to somebody else's
+  /// run. So the offer is made only to a role holding scan:manual.
+  group('typing a serial', () {
+    ScanTarget scanTarget() => ScanTarget(
+      module: AppModule.issuance,
+      title: 'Record issuance',
+      contextLine: '90ml · Local · Blue Ocean Beverages Pvt. Ltd.',
+      bottlesPerCase: 96,
+      unit: ScanUnit.labels,
+      initialPrefix: 'EXT',
+      submit: (_) async => null,
+    );
+
+    Future<void> pumpScan(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.8125;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ScanFlowScreen(target: scanTarget())),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('without the permission, scanning is the only way in', (
+      tester,
+    ) async {
+      await signedInAs('Field Operator', ['issuance:create']);
+      await pumpScan(tester);
+
+      expect(find.text('Open scanner'), findsOneWidget);
+      expect(find.text('Label damaged? Type it by hand'), findsNothing);
+
+      // Said rather than hidden: someone holding a torn label needs to know
+      // what happens next.
+      expect(
+        find.textContaining('typed in by someone who may do that'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('with it, the way out of a torn label is offered', (
+      tester,
+    ) async {
+      await signedInAs('Field Operator', ['issuance:create', 'scan:manual']);
+      await pumpScan(tester);
+
+      expect(find.text('Label damaged? Type it by hand'), findsOneWidget);
+      expect(
+        find.textContaining('typed in by someone who may do that'),
+        findsNothing,
+      );
+    });
+
+    test('a draft knows whether it was typed or scanned', () {
+      const scanned = ScanDraft(prefix: 'EXT', serialFrom: '1', serialTo: '96');
+      expect(scanned.typedByHand, isFalse);
+
+      // Either end typed makes the record a typed one: the wrong digit can
+      // be in either.
+      expect(const ScanDraft(fromTypedByHand: true).typedByHand, isTrue);
+      expect(const ScanDraft(toTypedByHand: true).typedByHand, isTrue);
     });
   });
 

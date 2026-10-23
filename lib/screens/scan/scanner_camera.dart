@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -476,42 +478,52 @@ class _Reticle extends StatelessWidget {
         final box = _reticleRect(constraints);
         final color = scanned ? AppColors.scannerAccent : Colors.white;
 
-        return Positioned(
-          left: box.left,
-          top: box.top,
-          width: box.width,
-          height: box.height,
-          child: IgnorePointer(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 1.5,
+        // A Stack of its own. A Positioned handed straight back from a
+        // LayoutBuilder has no Stack to position it against, so the frame
+        // drew itself over the whole screen: the corners sat off the
+        // edges and the scan line ran across the middle of the screen
+        // rather than the middle of the box the dimming cuts out.
+        return Stack(
+          children: [
+            Positioned(
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+              child: IgnorePointer(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                _Corner(color: color, top: true, left: true),
-                _Corner(color: color, top: true, left: false),
-                _Corner(color: color, top: false, left: true),
-                _Corner(color: color, top: false, left: false),
-                Center(
-                  child: Container(
-                    height: 2,
-                    margin: const EdgeInsets.symmetric(horizontal: 18),
-                    decoration: BoxDecoration(
-                      color: AppColors.scannerAccent,
-                      borderRadius: BorderRadius.circular(2),
+                    _Corner(color: color, top: true, left: true),
+                    _Corner(color: color, top: true, left: false),
+                    _Corner(color: color, top: false, left: true),
+                    _Corner(color: color, top: false, left: false),
+                    Center(
+                      child: Container(
+                        key: const ValueKey('scanner-line'),
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: AppColors.scannerAccent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -573,12 +585,20 @@ class _Corner extends StatelessWidget {
 
 /// A square window. An excise sticker is roughly square, and a square frame
 /// is easier to line up one-handed than a letterbox.
+/// The box the operator aims into.
+///
+/// Square, because a label's code is: a wide box invites holding the
+/// phone too far back. It is held to the smaller of the screen's width
+/// and two fifths of its height, so the instructions and the torch below
+/// are never crowded against it on a short screen, and it sits a little
+/// above centre, where a phone held over a case points naturally.
 Rect _reticleRect(BoxConstraints constraints) {
-  final width = constraints.maxWidth - 68;
-  final height = width;
-  final left = (constraints.maxWidth - width) / 2;
-  // Sits above centre so the whole bottom third stays free for controls.
-  final top = (constraints.maxHeight - height) / 2 - 30;
+  final side = math.min(
+    constraints.maxWidth - 72,
+    constraints.maxHeight * 0.42,
+  );
+  final left = (constraints.maxWidth - side) / 2;
+  final top = (constraints.maxHeight - side) / 2 - 44;
 
-  return Rect.fromLTWH(left, top < 0 ? 0 : top, width, height);
+  return Rect.fromLTWH(left, top < 24 ? 24 : top, side, side);
 }

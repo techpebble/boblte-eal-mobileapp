@@ -7,7 +7,6 @@ import 'package:eal_scanner/screens/scan/scan_success_screen.dart';
 import 'package:eal_scanner/screens/scan/scan_target.dart';
 import 'package:eal_scanner/services/authService.dart';
 import 'package:eal_scanner/screens/scan/scanner_camera.dart';
-import 'package:eal_scanner/services/settingsService.dart';
 import 'package:eal_scanner/theme/app_tokens.dart';
 import 'package:eal_scanner/utils/formatting.dart';
 import 'package:eal_scanner/widgets/ui/chips.dart';
@@ -660,9 +659,11 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
                         // Said rather than hidden: an operator holding a
                         // torn label needs to know what to do next.
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpace.lg,
-                            vertical: 6,
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpace.lg,
+                            9,
+                            AppSpace.lg,
+                            4,
                           ),
                           child: Text(
                             'A damaged label has to be typed in by someone '
@@ -820,9 +821,16 @@ class _RangeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The border is drawn over the rows rather than under them. A row
+    // waiting for its end fills itself with the page colour, and because
+    // the card clips its children that fill ran over the border beneath:
+    // the top edge came out paler than the other three sides.
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
+        borderRadius: AppRadius.brTile,
+      ),
+      foregroundDecoration: BoxDecoration(
         borderRadius: AppRadius.brTile,
         border: Border.all(color: AppColors.line),
       ),
